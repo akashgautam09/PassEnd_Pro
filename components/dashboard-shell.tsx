@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import {
   Activity,
   Archive,
@@ -131,16 +132,30 @@ export function DashboardShell({
         </nav>
 
         <div className="border-t border-[#eeeaf3] pt-5">
-          <div className="flex items-center gap-3 rounded-xl px-3 py-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e8e1ff] text-xs font-semibold text-[#6245b8]">
-              PS
+          <Show when="signed-in">
+            <div className="flex items-center gap-3 rounded-xl px-3 py-2">
+              <UserButton appearance={{ elements: { avatarBox: "h-9 w-9" } }} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-[#453c50]">Personal space</p>
+                <p className="mt-0.5 truncate text-[11px] text-[#9b94a5]">Signed-in account</p>
+              </div>
+              <ChevronDown size={15} className="text-[#aaa3b5]" />
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-[#453c50]">Personal space</p>
-              <p className="mt-0.5 truncate text-[11px] text-[#9b94a5]">Vault owner</p>
+          </Show>
+          <Show when="signed-out">
+            <div className="space-y-2 px-3">
+              <SignInButton mode="modal">
+                <button type="button" className="flex h-10 w-full items-center justify-center rounded-xl border border-[#e1dced] text-xs font-semibold text-[#6245b8] transition-colors hover:bg-[#f7f3ff]">
+                  Sign in
+                </button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button type="button" className="flex h-10 w-full items-center justify-center rounded-xl bg-[#7354d6] text-xs font-semibold text-white transition-colors hover:bg-[#6042bd]">
+                  Create account
+                </button>
+              </SignUpButton>
             </div>
-            <ChevronDown size={15} className="text-[#aaa3b5]" />
-          </div>
+          </Show>
         </div>
       </aside>
 
