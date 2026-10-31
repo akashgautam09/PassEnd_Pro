@@ -30,8 +30,9 @@ export const createVaultItemSchema = z.object({
 });
 
 export const updateVaultItemSchema = z
-  .object({
-    ...encryptedRecordFields,
+  .object(encryptedRecordFields)
+  .partial()
+  .extend({
     isFavorite: z.boolean().optional(),
     isTrash: z.boolean().optional(),
   })

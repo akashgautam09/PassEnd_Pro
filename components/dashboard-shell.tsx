@@ -51,6 +51,7 @@ type DashboardShellProps = {
   title: string;
   description: string;
   emptyState: EmptyState;
+  children?: React.ReactNode;
 };
 
 function NavSection({
@@ -100,6 +101,7 @@ export function DashboardShell({
   title,
   description,
   emptyState,
+  children,
 }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { lockVault } = useVault();
@@ -213,13 +215,13 @@ export function DashboardShell({
             <p className="mt-4 max-w-xl text-sm leading-6 text-[#837b8e] sm:text-[15px]">{description}</p>
           </div>
 
-          <section className="flex min-h-[390px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#d9d1e8] bg-white/55 px-6 py-14 text-center">
+          {children ?? <section className="flex min-h-[390px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#d9d1e8] bg-white/55 px-6 py-14 text-center">
             <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#eee9ff] text-[#7354d6]">
               <KeyRound size={28} strokeWidth={1.7} />
             </div>
             <h2 className="text-xl font-semibold tracking-[-0.025em] text-[#3c3348]">{emptyState.title}</h2>
             <p className="mt-3 max-w-md text-sm leading-6 text-[#8a8295]">{emptyState.description}</p>
-          </section>
+          </section>}
         </main>
       </div>
     </div>

@@ -119,7 +119,57 @@ export async function unwrapVaultEncryptionKey(
   return new Uint8Array(decrypted);
 }
 
-export function createAdditionalData(accountId: string, scope: "vault-key", cryptoVersion: number): Uint8Array {
+export type EncryptedVaultItem = {
+  encryptedData: string;
+  iv: string;
+  cryptoVersion: 1;
+};
+
+export async function encryptVaultItem(
+  payload: unknown,
+  vaultKey: Uint8Array,
+  accountId: string,
+  itemId: string,
+): Promise<EncryptedVaultItem> {
+  const iv = new Uint8Array(12);
+  crypto.getRandomValues(iv);
+  const additionalData = createAdditionalData(accountId, `vault-item:${itemId}`, 1);
+  const encryptionKey = await crypto.subtle.importKey("raw", toArrayBuffer(vaultKey), "AES-GCM", false, ["encrypt"]);
+  const plaintext = new TextEncoder().encode(JSON.stringify(payload));
+  const encrypted = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: toArrayBuffer(iv), additionalData: toArrayBuffer(additionalData), tagLength: 128 },
+    encryptionKey,
+    toArrayBuffer(plaintext),
+  );
+  wipeBytes(additionalData);
+  wipeBytes(plaintext);
+
+  return {
+    encryptedData: bytesToBase64(new Uint8Array(encrypted)),
+    iv: bytesToBase64(iv),
+    cryptoVersion: 1,
+  };
+}
+
+export async function decryptVaultItem<T>(
+  encrypted: EncryptedVaultItem,
+  vaultKey: Uint8Array,
+  accountId: string,
+  itemId: string,
+): Promise<T> {
+  if (encrypted.cryptoVersion !== 1) throw new Error("Unsupported vault item version");
+  const additionalData = createAdditionalData(accountId, `vault-item:${itemId}`, encrypted.cryptoVersion);
+  const encryptionKey = await crypto.subtle.importKey("raw", toArrayBuffer(vaultKey), "AES-GCM", false, ["decrypt"]);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: toArrayBuffer(base64ToBytes(encrypted.iv)), additionalData: toArrayBuffer(additionalData), tagLength: 128 },
+    encryptionKey,
+    toArrayBuffer(base64ToBytes(encrypted.encryptedData)),
+  );
+  wipeBytes(additionalData);
+  return JSON.parse(new TextDecoder().decode(decrypted)) as T;
+}
+
+export function createAdditionalData(accountId: string, scope: "vault-key" | `vault-item:${string}`, cryptoVersion: number): Uint8Array {
   return new TextEncoder().encode(`${accountId}|${scope}|v${cryptoVersion}`);
 }
 

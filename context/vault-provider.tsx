@@ -7,7 +7,9 @@ import { wipeBytes } from "@/lib/crypto/encoding";
 import {
   createAdditionalData,
   createArgon2idParameters,
+  decryptVaultItem,
   deriveMasterKey,
+  encryptVaultItem,
   generateSalt,
   generateVaultEncryptionKey,
   unwrapVaultEncryptionKey,
@@ -35,6 +37,8 @@ type VaultContextValue = {
   setupVault: (password: string) => Promise<boolean>;
   unlockVault: (password: string) => Promise<boolean>;
   lockVault: () => void;
+  encryptItem: (itemId: string, payload: unknown) => Promise<{ encryptedData: string; iv: string; cryptoVersion: 1 }>;
+  decryptItem: <T>(itemId: string, encrypted: { encryptedData: string; iv: string; cryptoVersion: 1 }) => Promise<T>;
 };
 
 const VaultContext = createContext<VaultContextValue | null>(null);
@@ -115,6 +119,16 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     vaultKeyRef.current = null;
     setError(null);
     setStatus("locked");
+  }
+
+  async function encryptItem(itemId: string, payload: unknown) {
+    if (!userId || !vaultKeyRef.current) throw new Error("Vault is locked");
+    return encryptVaultItem(payload, vaultKeyRef.current, userId, itemId);
+  }
+
+  async function decryptItem<T>(itemId: string, encrypted: { encryptedData: string; iv: string; cryptoVersion: 1 }) {
+    if (!userId || !vaultKeyRef.current) throw new Error("Vault is locked");
+    return decryptVaultItem<T>(encrypted, vaultKeyRef.current, userId, itemId);
   }
 
   async function setupVault(password: string): Promise<boolean> {
@@ -236,6 +250,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     setupVault,
     unlockVault,
     lockVault,
+    encryptItem,
+    decryptItem,
   };
 
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;
