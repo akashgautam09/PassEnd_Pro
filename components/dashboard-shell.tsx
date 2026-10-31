@@ -12,6 +12,7 @@ import {
   Heart,
   KeyRound,
   LayoutDashboard,
+  LockKeyhole,
   Menu,
   Moon,
   Search,
@@ -21,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { useVault } from "@/context/vault-provider";
 
 const navigation = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
@@ -100,6 +102,7 @@ export function DashboardShell({
   emptyState,
 }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { lockVault } = useVault();
 
   return (
     <div className="min-h-screen bg-[#f7f5fb]">
@@ -196,6 +199,9 @@ export function DashboardShell({
             </button>
             <button type="button" aria-label="Help and support" className="rounded-xl p-2.5 text-[#837b8e] hover:bg-white">
               <CircleHelp size={18} strokeWidth={1.8} />
+            </button>
+            <button type="button" aria-label="Lock vault" title="Lock vault" onClick={lockVault} className="rounded-xl p-2.5 text-[#837b8e] hover:bg-white">
+              <LockKeyhole size={18} strokeWidth={1.8} />
             </button>
           </div>
         </header>
