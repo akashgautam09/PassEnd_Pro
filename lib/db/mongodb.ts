@@ -47,6 +47,7 @@ export function ensureDatabaseIndexes(): Promise<void> {
     cache.indexesReady = Promise.all([
       database.collection("vault_items").createIndex({ userId: 1 }),
       database.collection("vault_items").createIndex({ userId: 1, isTrash: 1, updatedAt: -1 }),
+      database.collection("activity_events").createIndex({ userId: 1, createdAt: -1 }),
     ]).then(() => undefined);
   }
 

@@ -60,6 +60,14 @@ async function copyToClipboard(value: string) {
   await navigator.clipboard.writeText(value);
 }
 
+async function recordActivity(eventType: "item_created" | "item_updated" | "item_trashed" | "item_restored" | "item_deleted") {
+  await fetch("/api/activity", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ eventType }),
+  }).catch(() => undefined);
+}
+
 export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
   const { encryptItem, decryptItem } = useVault();
   const [items, setItems] = useState<LocalItem[]>([]);
@@ -144,6 +152,7 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
         body: JSON.stringify({ id, ...encrypted, isFavorite }),
       });
       if (!response.ok) throw new Error("Unable to save vault item");
+      await recordActivity(editingId ? "item_updated" : "item_created");
       setIsFormOpen(false);
       setForm({ ...emptyForm, isFavorite: false });
       await loadItems();
@@ -163,6 +172,9 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
         body: JSON.stringify(patch),
       });
       if (!response.ok) throw new Error("Unable to update vault item");
+      if (patch.isTrash === true) await recordActivity("item_trashed");
+      else if (patch.isTrash === false) await recordActivity("item_restored");
+      else await recordActivity("item_updated");
       await loadItems();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to update vault item");
@@ -174,6 +186,7 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
     try {
       const response = await fetch(`/api/vault/${id}`, { method: "DELETE" });
       if (!response.ok) throw new Error("Unable to delete vault item");
+      await recordActivity("item_deleted");
       await loadItems();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to delete vault item");

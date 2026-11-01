@@ -39,3 +39,7 @@ export const updateVaultItemSchema = z
   .refine((value) => Object.keys(value).length > 0, "At least one field is required");
 
 export const vaultListFilterSchema = z.enum(["active", "trash", "all"]);
+
+export const activityEventSchema = z.object({
+  eventType: z.enum(["vault_created", "vault_unlocked", "vault_locked", "item_created", "item_updated", "item_trashed", "item_restored", "item_deleted", "master_password_changed"]),
+});

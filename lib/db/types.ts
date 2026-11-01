@@ -29,3 +29,10 @@ export type VaultItemDocument = Document & {
   createdAt: Date;
   updatedAt: Date;
 };
+
+export type ActivityEventDocument = Document & {
+  _id?: string;
+  userId: string;
+  eventType: string;
+  createdAt: Date;
+};

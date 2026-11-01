@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@clerk/nextjs";
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { wipeBytes } from "@/lib/crypto/encoding";
 import {
@@ -39,6 +39,9 @@ type VaultContextValue = {
   lockVault: () => void;
   encryptItem: (itemId: string, payload: unknown) => Promise<{ encryptedData: string; iv: string; cryptoVersion: 1 }>;
   decryptItem: <T>(itemId: string, encrypted: { encryptedData: string; iv: string; cryptoVersion: 1 }) => Promise<T>;
+  autoLockMinutes: number;
+  setAutoLockMinutes: (minutes: number) => void;
+  changeMasterPassword: (currentPassword: string, nextPassword: string) => Promise<boolean>;
 };
 
 const VaultContext = createContext<VaultContextValue | null>(null);
@@ -79,7 +82,27 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<VaultStatus>("loading");
   const [isDeriving, setIsDeriving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoLockMinutes, setAutoLockMinutesState] = useState(() => {
+    if (typeof window === "undefined") return 15;
+    const stored = Number(window.localStorage.getItem("passend:auto-lock-minutes"));
+    return [5, 15, 30, 60].includes(stored) ? stored : 15;
+  });
   const vaultKeyRef = useRef<Uint8Array | null>(null);
+
+  function setAutoLockMinutes(minutes: number) {
+    if (![5, 15, 30, 60].includes(minutes)) return;
+    setAutoLockMinutesState(minutes);
+    window.localStorage.setItem("passend:auto-lock-minutes", String(minutes));
+  }
+
+  const recordActivity = useCallback(async (eventType: string) => {
+    if (!userId) return;
+    await fetch("/api/activity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventType }),
+    }).catch(() => undefined);
+  }, [userId]);
 
   useEffect(() => {
     if (vaultKeyRef.current) wipeBytes(vaultKeyRef.current);
@@ -108,6 +131,28 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   }, [isLoaded, userId]);
 
   useEffect(() => {
+    if (status !== "unlocked" || !userId) return;
+    let timer: number | undefined;
+    const resetTimer = () => {
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (vaultKeyRef.current) wipeBytes(vaultKeyRef.current);
+        vaultKeyRef.current = null;
+        setError(null);
+        setStatus("locked");
+        void recordActivity("vault_locked");
+      }, autoLockMinutes * 60 * 1000);
+    };
+    const events = ["pointerdown", "keydown", "touchstart"];
+    events.forEach((event) => window.addEventListener(event, resetTimer));
+    resetTimer();
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      events.forEach((event) => window.removeEventListener(event, resetTimer));
+    };
+  }, [autoLockMinutes, recordActivity, status, userId]);
+
+  useEffect(() => {
     return () => {
       if (vaultKeyRef.current) wipeBytes(vaultKeyRef.current);
       vaultKeyRef.current = null;
@@ -119,6 +164,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     vaultKeyRef.current = null;
     setError(null);
     setStatus("locked");
+    void recordActivity("vault_locked");
   }
 
   async function encryptItem(itemId: string, payload: unknown) {
@@ -175,6 +221,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       vaultKeyRef.current = vaultKey;
       transferredVaultKey = true;
       setStatus("unlocked");
+      void recordActivity("vault_created");
       return true;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to set up vault");
@@ -224,6 +271,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       vaultKeyRef.current = unwrappedVaultKey;
       unwrappedVaultKey = null;
       setStatus("unlocked");
+      void recordActivity("vault_unlocked");
       return true;
     } catch {
       if (unwrappedVaultKey) wipeBytes(unwrappedVaultKey);
@@ -243,6 +291,51 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function changeMasterPassword(currentPassword: string, nextPassword: string): Promise<boolean> {
+    if (!userId || !vaultKeyRef.current || isDeriving) return false;
+    setError(null);
+    setIsDeriving(true);
+    let oldDerivedKey: Uint8Array | null = null;
+    let nextDerivedKey: Uint8Array | null = null;
+    let existingVaultKey: Uint8Array | null = null;
+    const salt = generateSalt();
+    const nextParameters = createArgon2idParameters(salt);
+    const oldAdditionalData = createAdditionalData(userId, "vault-key", 1);
+    const nextAdditionalData = createAdditionalData(userId, "vault-key", nextParameters.version);
+
+    try {
+      const response = await fetch("/api/profile", { cache: "no-store" });
+      if (!response.ok) throw new Error("Unable to load vault settings");
+      const body = (await response.json()) as { profile: VaultProfile | null };
+      if (!body.profile || !isProfile(body.profile)) throw new Error("Vault setup is incomplete");
+      const oldParameters = toArgon2idParameters(body.profile);
+      oldDerivedKey = await deriveMasterKey(currentPassword, oldParameters);
+      existingVaultKey = await unwrapVaultEncryptionKey({ cryptoVersion: body.profile.cryptoVersion as 1, ciphertext: body.profile.wrappedVaultKey, iv: body.profile.wrapIv }, oldDerivedKey, oldAdditionalData);
+      nextDerivedKey = await deriveMasterKey(nextPassword, nextParameters);
+      const wrapped = await wrapVaultEncryptionKey(existingVaultKey, nextDerivedKey, nextAdditionalData);
+      const saveResponse = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kdf: { algorithm: nextParameters.algorithm, salt: nextParameters.salt, parameters: { version: nextParameters.version, memoryKiB: nextParameters.memoryKiB, iterations: nextParameters.iterations, parallelism: nextParameters.parallelism, hashLength: nextParameters.hashLength, passwordEncoding: nextParameters.passwordEncoding } }, wrappedVaultKey: wrapped.ciphertext, wrapIv: wrapped.iv, cryptoVersion: wrapped.cryptoVersion }),
+      });
+      if (!saveResponse.ok) throw new Error("Unable to save new Master Password settings");
+      setStatus("unlocked");
+      void recordActivity("master_password_changed");
+      return true;
+    } catch {
+      setError("The current Master Password was incorrect or the new settings could not be saved.");
+      return false;
+    } finally {
+      wipeBytes(salt);
+      wipeBytes(oldAdditionalData);
+      wipeBytes(nextAdditionalData);
+      if (oldDerivedKey) wipeBytes(oldDerivedKey);
+      if (nextDerivedKey) wipeBytes(nextDerivedKey);
+      if (existingVaultKey) wipeBytes(existingVaultKey);
+      setIsDeriving(false);
+    }
+  }
+
   const value: VaultContextValue = {
     status,
     isDeriving,
@@ -252,6 +345,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     lockVault,
     encryptItem,
     decryptItem,
+    autoLockMinutes,
+    setAutoLockMinutes,
+    changeMasterPassword,
   };
 
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;
