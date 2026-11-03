@@ -109,7 +109,7 @@ export function DashboardShell({
   return (
     <div className="min-h-screen bg-[#f7f5fb]">
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex w-[260px] flex-col border-r border-[#e8e4ef] bg-white px-5 py-6 transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 flex w-65 flex-col border-r border-[#e8e4ef] bg-white px-5 py-6 transition-transform duration-200 lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -118,7 +118,7 @@ export function DashboardShell({
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#7354d6] text-white shadow-[0_6px_14px_rgba(115,84,214,0.22)]">
               <KeyRound size={19} strokeWidth={2.2} />
             </span>
-            <span className="text-[17px] font-semibold tracking-[-0.03em] text-[#30283d]">PassEnd</span>
+            <span className="text-[17px] font-semibold tracking-[-0.03em] text-[#30283d]">PassEnd Pro</span>
           </Link>
           <button
             type="button"

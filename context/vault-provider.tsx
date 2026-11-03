@@ -310,7 +310,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       if (!body.profile || !isProfile(body.profile)) throw new Error("Vault setup is incomplete");
       const oldParameters = toArgon2idParameters(body.profile);
       oldDerivedKey = await deriveMasterKey(currentPassword, oldParameters);
-      existingVaultKey = await unwrapVaultEncryptionKey({ cryptoVersion: body.profile.cryptoVersion as 1, ciphertext: body.profile.wrappedVaultKey, iv: body.profile.wrapIv }, oldDerivedKey, oldAdditionalData);
+      wipeBytes(oldAdditionalData);
+      const profileAdditionalData = createAdditionalData(userId, "vault-key", body.profile.cryptoVersion);
+      existingVaultKey = await unwrapVaultEncryptionKey({ cryptoVersion: body.profile.cryptoVersion as 1, ciphertext: body.profile.wrappedVaultKey, iv: body.profile.wrapIv }, oldDerivedKey, profileAdditionalData);
+      wipeBytes(profileAdditionalData);
       nextDerivedKey = await deriveMasterKey(nextPassword, nextParameters);
       const wrapped = await wrapVaultEncryptionKey(existingVaultKey, nextDerivedKey, nextAdditionalData);
       const saveResponse = await fetch("/api/profile", {
