@@ -3,21 +3,25 @@
 import { useAuth } from "@clerk/nextjs";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
-import { wipeBytes } from "@/lib/crypto/encoding";
+import { hexToBytes, wipeBytes } from "@/lib/crypto/encoding";
 import {
   createAdditionalData,
   createArgon2idParameters,
   decryptVaultItem,
   deriveMasterKey,
   encryptVaultItem,
+  formatRecoveryKey,
+  generateRecoveryKey,
   generateSalt,
   generateVaultEncryptionKey,
   unwrapVaultEncryptionKey,
+  unwrapVaultKeyWithRecoveryKey,
+  wrapVaultKeyWithRecoveryKey,
   wrapVaultEncryptionKey,
 } from "@/lib/crypto/vault-crypto";
 import type { Argon2idParameters } from "@/lib/crypto/types";
 
-type VaultStatus = "loading" | "needs-setup" | "locked" | "unlocked" | "error";
+type VaultStatus = "loading" | "needs-setup" | "recovery-confirmation" | "locked" | "unlocked" | "error";
 
 type VaultProfile = {
   kdf: {
@@ -28,6 +32,9 @@ type VaultProfile = {
   wrappedVaultKey: string;
   wrapIv: string;
   cryptoVersion: number;
+  recoveryWrappedVaultKey?: string;
+  recoveryWrapIv?: string;
+  recoveryCryptoVersion?: number;
 };
 
 type VaultContextValue = {
@@ -42,6 +49,10 @@ type VaultContextValue = {
   autoLockMinutes: number;
   setAutoLockMinutes: (minutes: number) => void;
   changeMasterPassword: (currentPassword: string, nextPassword: string) => Promise<boolean>;
+  recoveryKey: string | null;
+  confirmRecoveryKeySaved: () => void;
+  recoverVault: (recoveryKey: string, nextPassword: string) => Promise<boolean>;
+  regenerateRecoveryKey: (currentPassword: string) => Promise<boolean>;
 };
 
 const VaultContext = createContext<VaultContextValue | null>(null);
@@ -82,6 +93,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<VaultStatus>("loading");
   const [isDeriving, setIsDeriving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
   const [autoLockMinutes, setAutoLockMinutesState] = useState(() => {
     if (typeof window === "undefined") return 15;
     const stored = Number(window.localStorage.getItem("passend:auto-lock-minutes"));
@@ -184,7 +196,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const salt = generateSalt();
     const parameters = createArgon2idParameters(salt);
     const vaultKey = generateVaultEncryptionKey();
+    const rawRecoveryKey = generateRecoveryKey();
     const additionalData = createAdditionalData(userId, "vault-key", parameters.version);
+    const recoveryAdditionalData = createAdditionalData(userId, "recovery-key-wrap", parameters.version);
     let derivedKey: Uint8Array | null = null;
     let transferredVaultKey = false;
 
@@ -195,6 +209,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         derivedKey,
         additionalData,
       );
+      const recoveryWrapped = await wrapVaultKeyWithRecoveryKey(vaultKey, rawRecoveryKey, recoveryAdditionalData);
       const response = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -214,13 +229,17 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
           wrappedVaultKey: wrapped.ciphertext,
           wrapIv: wrapped.iv,
           cryptoVersion: wrapped.cryptoVersion,
+          recoveryWrappedVaultKey: recoveryWrapped.ciphertext,
+          recoveryWrapIv: recoveryWrapped.iv,
+          recoveryCryptoVersion: recoveryWrapped.cryptoVersion,
         }),
       });
       if (!response.ok) throw new Error("Unable to save vault settings");
 
       vaultKeyRef.current = vaultKey;
       transferredVaultKey = true;
-      setStatus("unlocked");
+      setRecoveryKey(formatRecoveryKey(rawRecoveryKey));
+      setStatus("recovery-confirmation");
       void recordActivity("vault_created");
       return true;
     } catch (caught) {
@@ -229,8 +248,56 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     } finally {
       wipeBytes(salt);
       wipeBytes(additionalData);
+      wipeBytes(recoveryAdditionalData);
+      wipeBytes(rawRecoveryKey);
       if (!transferredVaultKey) wipeBytes(vaultKey);
       if (derivedKey) wipeBytes(derivedKey);
+      setIsDeriving(false);
+    }
+  }
+
+  function confirmRecoveryKeySaved() {
+    setRecoveryKey(null);
+    setStatus("unlocked");
+  }
+
+  async function recoverVault(recoveryKeyText: string, nextPassword: string): Promise<boolean> {
+    if (!userId || isDeriving) return false;
+    setError(null);
+    setIsDeriving(true);
+    let recoveryBytes: Uint8Array | null = null;
+    let recoveredVaultKey: Uint8Array | null = null;
+    let nextDerivedKey: Uint8Array | null = null;
+    const salt = generateSalt();
+    const nextParameters = createArgon2idParameters(salt);
+    const nextAdditionalData = createAdditionalData(userId, "vault-key", nextParameters.version);
+    try {
+      const response = await fetch("/api/profile", { cache: "no-store" });
+      if (!response.ok) throw new Error("Unable to load vault settings");
+      const body = (await response.json()) as { profile: VaultProfile | null };
+      if (!body.profile || !isProfile(body.profile) || !body.profile.recoveryWrappedVaultKey || !body.profile.recoveryWrapIv) throw new Error("Recovery is not configured for this vault");
+      recoveryBytes = hexToBytes(recoveryKeyText);
+      const recoveryAdditionalData = createAdditionalData(userId, "recovery-key-wrap", body.profile.recoveryCryptoVersion ?? 1);
+      recoveredVaultKey = await unwrapVaultKeyWithRecoveryKey({ cryptoVersion: (body.profile.recoveryCryptoVersion ?? 1) as 1, ciphertext: body.profile.recoveryWrappedVaultKey, iv: body.profile.recoveryWrapIv }, recoveryBytes, recoveryAdditionalData);
+      wipeBytes(recoveryAdditionalData);
+      nextDerivedKey = await deriveMasterKey(nextPassword, nextParameters);
+      const wrapped = await wrapVaultEncryptionKey(recoveredVaultKey, nextDerivedKey, nextAdditionalData);
+      const saveResponse = await fetch("/api/profile", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kdf: { algorithm: nextParameters.algorithm, salt: nextParameters.salt, parameters: { version: nextParameters.version, memoryKiB: nextParameters.memoryKiB, iterations: nextParameters.iterations, parallelism: nextParameters.parallelism, hashLength: nextParameters.hashLength, passwordEncoding: nextParameters.passwordEncoding } }, wrappedVaultKey: wrapped.ciphertext, wrapIv: wrapped.iv, cryptoVersion: wrapped.cryptoVersion, recoveryWrappedVaultKey: body.profile.recoveryWrappedVaultKey, recoveryWrapIv: body.profile.recoveryWrapIv, recoveryCryptoVersion: body.profile.recoveryCryptoVersion ?? 1 }) });
+      if (!saveResponse.ok) throw new Error("Unable to save recovered vault settings");
+      vaultKeyRef.current = recoveredVaultKey;
+      recoveredVaultKey = null;
+      setStatus("unlocked");
+      void recordActivity("master_password_changed");
+      return true;
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to recover vault");
+      return false;
+    } finally {
+      wipeBytes(salt);
+      wipeBytes(nextAdditionalData);
+      if (recoveryBytes) wipeBytes(recoveryBytes);
+      if (recoveredVaultKey) wipeBytes(recoveredVaultKey);
+      if (nextDerivedKey) wipeBytes(nextDerivedKey);
       setIsDeriving(false);
     }
   }
@@ -316,10 +383,11 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       wipeBytes(profileAdditionalData);
       nextDerivedKey = await deriveMasterKey(nextPassword, nextParameters);
       const wrapped = await wrapVaultEncryptionKey(existingVaultKey, nextDerivedKey, nextAdditionalData);
+      const currentProfile = body.profile;
       const saveResponse = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kdf: { algorithm: nextParameters.algorithm, salt: nextParameters.salt, parameters: { version: nextParameters.version, memoryKiB: nextParameters.memoryKiB, iterations: nextParameters.iterations, parallelism: nextParameters.parallelism, hashLength: nextParameters.hashLength, passwordEncoding: nextParameters.passwordEncoding } }, wrappedVaultKey: wrapped.ciphertext, wrapIv: wrapped.iv, cryptoVersion: wrapped.cryptoVersion }),
+        body: JSON.stringify({ kdf: { algorithm: nextParameters.algorithm, salt: nextParameters.salt, parameters: { version: nextParameters.version, memoryKiB: nextParameters.memoryKiB, iterations: nextParameters.iterations, parallelism: nextParameters.parallelism, hashLength: nextParameters.hashLength, passwordEncoding: nextParameters.passwordEncoding } }, wrappedVaultKey: wrapped.ciphertext, wrapIv: wrapped.iv, cryptoVersion: wrapped.cryptoVersion, recoveryWrappedVaultKey: currentProfile.recoveryWrappedVaultKey, recoveryWrapIv: currentProfile.recoveryWrapIv, recoveryCryptoVersion: currentProfile.recoveryCryptoVersion }),
       });
       if (!saveResponse.ok) throw new Error("Unable to save new Master Password settings");
       setStatus("unlocked");
@@ -339,6 +407,44 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function regenerateRecoveryKey(currentPassword: string): Promise<boolean> {
+    if (!userId || !vaultKeyRef.current || isDeriving) return false;
+    setError(null);
+    setIsDeriving(true);
+    let derivedKey: Uint8Array | null = null;
+    let existingVaultKey: Uint8Array | null = null;
+    const rawRecoveryKey = generateRecoveryKey();
+    const recoveryAdditionalData = createAdditionalData(userId, "recovery-key-wrap", 1);
+    try {
+      const response = await fetch("/api/profile", { cache: "no-store" });
+      if (!response.ok) throw new Error("Unable to load vault settings");
+      const body = (await response.json()) as { profile: VaultProfile | null };
+      if (!body.profile || !isProfile(body.profile)) throw new Error("Vault setup is incomplete");
+      const parameters = toArgon2idParameters(body.profile);
+      derivedKey = await deriveMasterKey(currentPassword, parameters);
+      const oldAdditionalData = createAdditionalData(userId, "vault-key", body.profile.cryptoVersion);
+      existingVaultKey = await unwrapVaultEncryptionKey({ cryptoVersion: body.profile.cryptoVersion as 1, ciphertext: body.profile.wrappedVaultKey, iv: body.profile.wrapIv }, derivedKey, oldAdditionalData);
+      wipeBytes(oldAdditionalData);
+      const wrapped = await wrapVaultKeyWithRecoveryKey(existingVaultKey, rawRecoveryKey, recoveryAdditionalData);
+      const verified = await unwrapVaultKeyWithRecoveryKey(wrapped, rawRecoveryKey, recoveryAdditionalData);
+      wipeBytes(verified);
+      const saveResponse = await fetch("/api/profile", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kdf: body.profile.kdf, wrappedVaultKey: body.profile.wrappedVaultKey, wrapIv: body.profile.wrapIv, cryptoVersion: body.profile.cryptoVersion, recoveryWrappedVaultKey: wrapped.ciphertext, recoveryWrapIv: wrapped.iv, recoveryCryptoVersion: wrapped.cryptoVersion }) });
+      if (!saveResponse.ok) throw new Error("Unable to save Recovery Key settings");
+      setRecoveryKey(formatRecoveryKey(rawRecoveryKey));
+      setStatus("recovery-confirmation");
+      return true;
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to regenerate Recovery Key");
+      return false;
+    } finally {
+      wipeBytes(rawRecoveryKey);
+      wipeBytes(recoveryAdditionalData);
+      if (derivedKey) wipeBytes(derivedKey);
+      if (existingVaultKey) wipeBytes(existingVaultKey);
+      setIsDeriving(false);
+    }
+  }
+
   const value: VaultContextValue = {
     status,
     isDeriving,
@@ -351,6 +457,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     autoLockMinutes,
     setAutoLockMinutes,
     changeMasterPassword,
+    recoveryKey,
+    confirmRecoveryKeySaved,
+    recoverVault,
+    regenerateRecoveryKey,
   };
 
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;

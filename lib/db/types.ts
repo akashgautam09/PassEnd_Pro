@@ -12,6 +12,9 @@ export type UserVaultDocument = Document & {
   wrappedVaultKey: string;
   wrapIv: string;
   cryptoVersion: number;
+  recoveryWrappedVaultKey?: string;
+  recoveryWrapIv?: string;
+  recoveryCryptoVersion?: number;
   createdAt: Date;
   updatedAt: Date;
 };

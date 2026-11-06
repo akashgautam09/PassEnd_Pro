@@ -19,6 +19,12 @@ export type WrappedVaultKey = {
   iv: string;
 };
 
+export type RecoveryWrappedVaultKey = {
+  cryptoVersion: typeof CRYPTO_VERSION;
+  ciphertext: string;
+  iv: string;
+};
+
 export type BenchmarkResult = {
   samples: number[];
   averageMs: number;

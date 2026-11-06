@@ -15,6 +15,9 @@ export const profileSchema = z.object({
   wrappedVaultKey: base64.min(16).max(4096),
   wrapIv: base64.min(8).max(256),
   cryptoVersion: z.number().int().positive().max(100),
+  recoveryWrappedVaultKey: base64.min(16).max(4096).optional(),
+  recoveryWrapIv: base64.min(8).max(256).optional(),
+  recoveryCryptoVersion: z.number().int().positive().max(100).optional(),
 });
 
 const encryptedRecordFields = {

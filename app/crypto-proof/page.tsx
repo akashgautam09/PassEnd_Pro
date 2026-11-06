@@ -10,8 +10,11 @@ import {
   deriveMasterKey,
   generateSalt,
   generateVaultEncryptionKey,
+  generateRecoveryKey,
   unwrapVaultEncryptionKey,
+  unwrapVaultKeyWithRecoveryKey,
   wrapVaultEncryptionKey,
+  wrapVaultKeyWithRecoveryKey,
 } from "@/lib/crypto/vault-crypto";
 import type { BenchmarkResult, DerivationStatus } from "@/lib/crypto/types";
 
@@ -100,6 +103,38 @@ export default function CryptoProofPage() {
     }
   }
 
+  async function runRecoveryProof() {
+    setStatus("starting");
+    setMessage("Testing the 256-bit Recovery Key envelope...");
+    const recoveryKey = generateRecoveryKey();
+    const vaultKey = generateVaultEncryptionKey();
+    const additionalData = createAdditionalData("phase-10-proof", "recovery-key-wrap", 1);
+    let recovered: Uint8Array | null = null;
+    try {
+      const wrapped = await wrapVaultKeyWithRecoveryKey(vaultKey, recoveryKey, additionalData);
+      recovered = await unwrapVaultKeyWithRecoveryKey(wrapped, recoveryKey, additionalData);
+      if (!recovered.every((value, index) => value === vaultKey[index])) throw new Error("Recovery round-trip failed");
+      const wrongKey = generateRecoveryKey();
+      let wrongKeyRejected = false;
+      try { await unwrapVaultKeyWithRecoveryKey(wrapped, wrongKey, additionalData); } catch { wrongKeyRejected = true; }
+      wipeBytes(wrongKey);
+      const tampered = { ...wrapped, ciphertext: `${wrapped.ciphertext.slice(0, -2)}AA` };
+      let tamperingRejected = false;
+      try { await unwrapVaultKeyWithRecoveryKey(tampered, recoveryKey, additionalData); } catch { tamperingRejected = true; }
+      if (!wrongKeyRejected || !tamperingRejected) throw new Error("Recovery authentication checks did not reject");
+      setMessage("Passed: 256-bit Recovery Key round-trip, wrong-key rejection, and tamper rejection.");
+      setStatus("complete");
+    } catch (error) {
+      setStatus("idle");
+      setMessage(error instanceof Error ? error.message : "Recovery proof failed");
+    } finally {
+      wipeBytes(recoveryKey);
+      wipeBytes(vaultKey);
+      wipeBytes(additionalData);
+      if (recovered) wipeBytes(recovered);
+    }
+  }
+
   const isBusy = status === "starting" || status === "deriving";
 
   return (
@@ -113,6 +148,7 @@ export default function CryptoProofPage() {
         <div className="mt-5 flex flex-wrap gap-3">
           <button type="button" onClick={runProof} disabled={!password || isBusy} className="h-11 rounded-xl bg-[#7354d6] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#6042bd] disabled:cursor-not-allowed disabled:opacity-50">Run crypto proof</button>
           <button type="button" onClick={runBenchmark} disabled={!password || isBusy} className="h-11 rounded-xl border border-[#ded7e8] px-5 text-sm font-semibold text-[#6245b8] transition-colors hover:bg-[#f7f3ff] disabled:cursor-not-allowed disabled:opacity-50">Benchmark</button>
+          <button type="button" onClick={() => void runRecoveryProof()} disabled={isBusy} className="h-11 rounded-xl border border-[#ded7e8] px-5 text-sm font-semibold text-[#6245b8] transition-colors hover:bg-[#f7f3ff] disabled:cursor-not-allowed disabled:opacity-50">Test Recovery Key</button>
         </div>
         <div className="mt-7 rounded-xl bg-[#f7f4ff] p-4 text-sm text-[#665b75]" aria-live="polite">
           {isBusy ? "Deriving key in a background worker..." : message}

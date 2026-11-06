@@ -1,7 +1,7 @@
 import "client-only";
 
-import type { Argon2idParameters, BenchmarkResult, DerivationStatus, WrappedVaultKey } from "@/lib/crypto/types";
-import { base64ToBytes, bytesToBase64, wipeBytes } from "@/lib/crypto/encoding";
+import type { Argon2idParameters, BenchmarkResult, DerivationStatus, RecoveryWrappedVaultKey, WrappedVaultKey } from "@/lib/crypto/types";
+import { base64ToBytes, bytesToBase64, bytesToHex, wipeBytes } from "@/lib/crypto/encoding";
 
 const ARGON2_DEFAULTS = {
   memoryKiB: 19 * 1024,
@@ -28,6 +28,17 @@ export function generateVaultEncryptionKey(): Uint8Array {
   const key = new Uint8Array(32);
   crypto.getRandomValues(key);
   return key;
+}
+
+export function generateRecoveryKey(): Uint8Array {
+  const key = new Uint8Array(32);
+  crypto.getRandomValues(key);
+  return key;
+}
+
+export function formatRecoveryKey(key: Uint8Array): string {
+  if (key.length !== 32) throw new Error("Recovery Key must be 256 bits");
+  return bytesToHex(key).match(/.{1,4}/g)?.join("-") ?? "";
 }
 
 export function createArgon2idParameters(salt: Uint8Array): Argon2idParameters {
@@ -119,6 +130,20 @@ export async function unwrapVaultEncryptionKey(
   return new Uint8Array(decrypted);
 }
 
+export async function wrapVaultKeyWithRecoveryKey(vaultKey: Uint8Array, recoveryKey: Uint8Array, additionalData: Uint8Array): Promise<RecoveryWrappedVaultKey> {
+  const iv = new Uint8Array(12);
+  crypto.getRandomValues(iv);
+  const wrappingKey = await crypto.subtle.importKey("raw", toArrayBuffer(recoveryKey), "AES-GCM", false, ["encrypt"]);
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: toArrayBuffer(iv), additionalData: toArrayBuffer(additionalData), tagLength: 128 }, wrappingKey, toArrayBuffer(vaultKey));
+  return { cryptoVersion: 1, ciphertext: bytesToBase64(new Uint8Array(encrypted)), iv: bytesToBase64(iv) };
+}
+
+export async function unwrapVaultKeyWithRecoveryKey(wrapped: RecoveryWrappedVaultKey, recoveryKey: Uint8Array, additionalData: Uint8Array): Promise<Uint8Array> {
+  const wrappingKey = await crypto.subtle.importKey("raw", toArrayBuffer(recoveryKey), "AES-GCM", false, ["decrypt"]);
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: toArrayBuffer(base64ToBytes(wrapped.iv)), additionalData: toArrayBuffer(additionalData), tagLength: 128 }, wrappingKey, toArrayBuffer(base64ToBytes(wrapped.ciphertext)));
+  return new Uint8Array(decrypted);
+}
+
 export type EncryptedVaultItem = {
   encryptedData: string;
   iv: string;
@@ -169,7 +194,7 @@ export async function decryptVaultItem<T>(
   return JSON.parse(new TextDecoder().decode(decrypted)) as T;
 }
 
-export function createAdditionalData(accountId: string, scope: "vault-key" | `vault-item:${string}`, cryptoVersion: number): Uint8Array {
+export function createAdditionalData(accountId: string, scope: "vault-key" | "recovery-key-wrap" | `vault-item:${string}`, cryptoVersion: number): Uint8Array {
   return new TextEncoder().encode(`${accountId}|${scope}|v${cryptoVersion}`);
 }
 

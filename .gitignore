@@ -38,6 +38,8 @@ yarn-error.log*
 .vercel
 
 PROJECT_PLAN.md
+PASSEND_PRO_USER_GUIDE.md
+POST_MVP_ROADMAP.md
 
 # typescript
 *.tsbuildinfo
