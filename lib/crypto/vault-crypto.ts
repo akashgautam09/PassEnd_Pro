@@ -1,7 +1,7 @@
 import "client-only";
 
-import type { Argon2idParameters, BenchmarkResult, DerivationStatus, RecoveryWrappedVaultKey, WrappedVaultKey } from "@/lib/crypto/types";
-import { base64ToBytes, bytesToBase64, bytesToHex, wipeBytes } from "@/lib/crypto/encoding";
+import type { Argon2idParameters, BenchmarkResult, DerivationStatus, RecoveryWrappedVaultKey, WrappedVaultKey } from "./types.ts";
+import { base64ToBytes, bytesToBase64, bytesToHex, wipeBytes } from "./encoding.ts";
 
 const ARGON2_DEFAULTS = {
   memoryKiB: 19 * 1024,

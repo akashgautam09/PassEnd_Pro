@@ -6,6 +6,16 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { hexToBytes, wipeBytes } from "@/lib/crypto/encoding";
 import { broadcastVaultEvent, subscribeToVaultEvents } from "@/lib/sync/tab-channel";
 import {
+  buildBackupPackage,
+  type PassEndBackupFile,
+  type PassEndBackupItem,
+  type PassEndBackupProfile,
+  type RestoreProgress,
+  type RestoreSummary,
+  restoreEncryptedBackup as executeRestore,
+} from "@/lib/backup/backup-service";
+import { getItemType, type VaultItemPayload } from "@/lib/types/vault";
+import {
   createAdditionalData,
   createArgon2idParameters,
   decryptVaultItem,
@@ -53,8 +63,15 @@ type VaultContextValue = {
   recoveryKey: string | null;
   confirmRecoveryKeySaved: () => void;
   recoverVault: (recoveryKey: string, nextPassword: string) => Promise<boolean>;
-  regenerateRecoveryKey: (currentPassword: string) => Promise<boolean>;
+  regenerateRecoveryKey: (currentPassword: string) => Promise<string | null>;
   notifyMutation: (action?: "created" | "updated" | "trashed" | "restored" | "deleted", itemId?: string) => void;
+  exportBackup: () => Promise<PassEndBackupFile>;
+  restoreBackup: (params: {
+    backup: PassEndBackupFile;
+    credential: { password?: string; recoveryKey?: string };
+    mode: "merge" | "replace";
+    onProgress?: (progress: RestoreProgress) => void;
+  }) => Promise<RestoreSummary>;
 };
 
 const VaultContext = createContext<VaultContextValue | null>(null);
@@ -438,8 +455,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function regenerateRecoveryKey(currentPassword: string): Promise<boolean> {
-    if (!userId || !vaultKeyRef.current || isDeriving) return false;
+  async function regenerateRecoveryKey(currentPassword: string): Promise<string | null> {
+    if (!userId || !vaultKeyRef.current || isDeriving) return null;
     setError(null);
     setIsDeriving(true);
     let derivedKey: Uint8Array | null = null;
@@ -461,12 +478,13 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       wipeBytes(verified);
       const saveResponse = await fetch("/api/profile", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kdf: body.profile.kdf, wrappedVaultKey: body.profile.wrappedVaultKey, wrapIv: body.profile.wrapIv, cryptoVersion: body.profile.cryptoVersion, recoveryWrappedVaultKey: wrapped.ciphertext, recoveryWrapIv: wrapped.iv, recoveryCryptoVersion: wrapped.cryptoVersion }) });
       if (!saveResponse.ok) throw new Error("Unable to save Recovery Key settings");
-      setRecoveryKey(formatRecoveryKey(rawRecoveryKey));
-      setStatus("recovery-confirmation");
-      return true;
+      const formattedKey = formatRecoveryKey(rawRecoveryKey);
+      setRecoveryKey(formattedKey);
+      void recordActivity("recovery_key_regenerated");
+      return formattedKey;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to regenerate Recovery Key");
-      return false;
+      return null;
     } finally {
       wipeBytes(rawRecoveryKey);
       wipeBytes(recoveryAdditionalData);
@@ -475,6 +493,114 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       setIsDeriving(false);
     }
   }
+
+  const exportBackup = useCallback(async (): Promise<PassEndBackupFile> => {
+    if (!userId || !vaultKeyRef.current) {
+      throw new Error("Vault must be unlocked to export a backup.");
+    }
+
+    const profileRes = await fetch("/api/profile", { cache: "no-store" });
+    if (!profileRes.ok) throw new Error("Failed to load vault profile for backup.");
+    const profileData = await profileRes.json();
+    if (!profileData.profile) throw new Error("Vault profile not found.");
+
+    const itemsRes = await fetch("/api/vault?trash=all", { cache: "no-store" });
+    if (!itemsRes.ok) throw new Error("Failed to load vault items for backup.");
+    const itemsData = await itemsRes.json();
+    const rawItems = (itemsData.items ?? []) as Array<{
+      _id: string;
+      encryptedData: string;
+      iv: string;
+      cryptoVersion: number;
+      version: number;
+      isFavorite: boolean;
+      isTrash: boolean;
+      trashedAt?: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+
+    const backupProfile: PassEndBackupProfile = {
+      sourceAccountId: userId,
+      kdf: profileData.profile.kdf,
+      wrappedVaultKey: profileData.profile.wrappedVaultKey,
+      wrapIv: profileData.profile.wrapIv,
+      cryptoVersion: profileData.profile.cryptoVersion,
+      recoveryWrappedVaultKey: profileData.profile.recoveryWrappedVaultKey,
+      recoveryWrapIv: profileData.profile.recoveryWrapIv,
+      recoveryCryptoVersion: profileData.profile.recoveryCryptoVersion,
+    };
+
+    const backupItems: PassEndBackupItem[] = rawItems.map((item) => ({
+      id: item._id,
+      encryptedData: item.encryptedData,
+      iv: item.iv,
+      cryptoVersion: item.cryptoVersion,
+      version: item.version,
+      isFavorite: item.isFavorite,
+      isTrash: item.isTrash,
+      trashedAt: item.trashedAt ?? null,
+      createdAt: typeof item.createdAt === "string" ? item.createdAt : new Date(item.createdAt).toISOString(),
+      updatedAt: typeof item.updatedAt === "string" ? item.updatedAt : new Date(item.updatedAt).toISOString(),
+    }));
+
+    return buildBackupPackage(backupProfile, backupItems);
+  }, [userId]);
+
+  const restoreBackup = useCallback(async (params: {
+    backup: PassEndBackupFile;
+    credential: { password?: string; recoveryKey?: string };
+    mode: "merge" | "replace";
+    onProgress?: (progress: RestoreProgress) => void;
+  }): Promise<RestoreSummary> => {
+    if (!userId || !vaultKeyRef.current) {
+      throw new Error("Vault must be unlocked to restore a backup.");
+    }
+
+    const existingTitles = new Set<string>();
+    if (params.mode === "merge") {
+      try {
+        const itemsRes = await fetch("/api/vault?trash=all", { cache: "no-store" });
+        if (itemsRes.ok) {
+          const itemsData = await itemsRes.json();
+          const items = (itemsData.items ?? []) as Array<{
+            _id: string;
+            encryptedData: string;
+            iv: string;
+            cryptoVersion: 1;
+          }>;
+          for (const item of items) {
+            try {
+              const payload = await decryptVaultItem<VaultItemPayload>(
+                item,
+                vaultKeyRef.current,
+                userId,
+                item._id
+              );
+              existingTitles.add(`${getItemType(payload)}:${payload.title.trim().toLowerCase()}`);
+            } catch {
+              // Ignore decryption failure for individual stale or mismatched item
+            }
+          }
+        }
+      } catch {
+        // Proceed with empty existingTitles
+      }
+    }
+
+    const summary = await executeRestore({
+      backup: params.backup,
+      credential: params.credential,
+      destinationVaultKey: vaultKeyRef.current,
+      destinationAccountId: userId,
+      existingItemTitles: existingTitles,
+      mode: params.mode,
+      onProgress: params.onProgress,
+    });
+
+    broadcastVaultEvent({ type: "VAULT_MUTATED", action: "created" });
+    return summary;
+  }, [userId]);
 
   const value: VaultContextValue = {
     status,
@@ -493,6 +619,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     recoverVault,
     regenerateRecoveryKey,
     notifyMutation,
+    exportBackup,
+    restoreBackup,
   };
 
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;

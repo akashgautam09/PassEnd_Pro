@@ -44,6 +44,10 @@ export const updateVaultItemSchema = z
 
 export const vaultListFilterSchema = z.enum(["active", "trash", "all"]);
 
+export const batchCreateVaultItemSchema = z.object({
+  items: z.array(createVaultItemSchema).min(1).max(100),
+});
+
 export const activityEventSchema = z.object({
   eventType: z.enum(["vault_created", "vault_unlocked", "vault_locked", "item_created", "item_updated", "item_trashed", "item_restored", "item_deleted", "master_password_changed"]),
 });
