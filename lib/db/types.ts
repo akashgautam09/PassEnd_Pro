@@ -25,6 +25,7 @@ export type VaultItemDocument = Document & {
   encryptedData: string;
   iv: string;
   cryptoVersion: number;
+  version: number;
   isFavorite: boolean;
   isTrash: boolean;
   trashedAt: Date | null;

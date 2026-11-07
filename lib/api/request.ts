@@ -1,24 +1,23 @@
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { MAX_JSON_BODY_BYTES } from "@/lib/validations/api";
+import { MAX_JSON_BODY_BYTES } from "../validations/api.ts";
 
 export async function getAuthenticatedUserId(): Promise<string | null> {
+  const { auth } = await import("@clerk/nextjs/server");
   const { isAuthenticated, userId } = await auth();
   return isAuthenticated && userId ? userId : null;
 }
 
 export function unauthorizedResponse() {
-  return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  return Response.json({ error: "Authentication required" }, { status: 401 });
 }
 
 export function badRequestResponse(message = "Invalid request") {
-  return NextResponse.json({ error: message }, { status: 400 });
+  return Response.json({ error: message }, { status: 400 });
 }
 
 export function serverErrorResponse() {
-  return NextResponse.json({ error: "Unable to process request" }, { status: 500 });
+  return Response.json({ error: "Unable to process request" }, { status: 500 });
 }
 
 export async function parseJsonBody<T extends z.ZodType>(request: Request, schema: T): Promise<z.output<T>> {

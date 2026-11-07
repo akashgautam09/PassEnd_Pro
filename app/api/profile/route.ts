@@ -5,10 +5,13 @@ import { ensureDatabaseIndexes, getDatabase } from "@/lib/db/mongodb";
 import { getAuthenticatedUserId, badRequestResponse, parseJsonBody, serverErrorResponse, unauthorizedResponse } from "@/lib/api/request";
 import { profileSchema } from "@/lib/validations/api";
 import type { UserVaultDocument } from "@/lib/db/types";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export async function GET() {
   const userId = await getAuthenticatedUserId();
   if (!userId) return unauthorizedResponse();
+  const limited = await enforceRateLimit(`profile:get:${userId}`, 30);
+  if (limited) return limited;
 
   try {
     await ensureDatabaseIndexes();
@@ -36,6 +39,8 @@ export async function GET() {
 export async function PUT(request: Request) {
   const userId = await getAuthenticatedUserId();
   if (!userId) return unauthorizedResponse();
+  const limited = await enforceRateLimit(`profile:write:${userId}`, 10);
+  if (limited) return limited;
 
   try {
     const payload = await parseJsonBody(request, profileSchema);

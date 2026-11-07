@@ -25,6 +25,7 @@ type EncryptedRecord = {
   encryptedData: string;
   iv: string;
   cryptoVersion: 1;
+  version: number;
   isFavorite: boolean;
   isTrash: boolean;
   trashedAt: string | null;
@@ -34,6 +35,7 @@ type EncryptedRecord = {
 type LocalItem = LoginPayload & {
   id: string;
   isFavorite: boolean;
+  version: number;
   isTrash: boolean;
   trashedAt: string | null;
   purgeAt: string | null;
@@ -79,6 +81,7 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conflictError, setConflictError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof LoginPayload, string>>>({});
   const [showFormPassword, setShowFormPassword] = useState(false);
 
@@ -97,7 +100,7 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
             iv: record.iv,
             cryptoVersion: record.cryptoVersion,
           });
-          decrypted.push({ ...payload, id: record._id, isFavorite: record.isFavorite, isTrash: record.isTrash, trashedAt: record.trashedAt, purgeAt: record.purgeAt });
+          decrypted.push({ ...payload, id: record._id, isFavorite: record.isFavorite, version: record.version ?? 1, isTrash: record.isTrash, trashedAt: record.trashedAt, purgeAt: record.purgeAt });
         } catch {
           setError("One or more vault items could not be decrypted.");
         }
@@ -119,6 +122,7 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
     setEditingId(null);
     setForm({ ...emptyForm, isFavorite: false });
     setFormErrors({});
+    setConflictError(null);
     setShowFormPassword(false);
     setIsFormOpen(true);
   }
@@ -127,8 +131,36 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
     setEditingId(item.id);
     setForm({ title: item.title, category: item.category ?? "", website: item.website, username: item.username, password: item.password, notes: item.notes, isFavorite: item.isFavorite });
     setFormErrors({});
+    setConflictError(null);
     setShowFormPassword(false);
     setIsFormOpen(true);
+  }
+
+  async function reloadConflictedItem() {
+    if (!editingId) return;
+    setConflictError(null);
+    try {
+      const response = await fetch(`/api/vault/${editingId}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Unable to fetch latest item");
+      const body = (await response.json()) as { item: EncryptedRecord };
+      const decrypted = await decryptItem<LoginPayload>(body.item._id, {
+        encryptedData: body.item.encryptedData,
+        iv: body.item.iv,
+        cryptoVersion: body.item.cryptoVersion,
+      });
+      setForm({
+        title: decrypted.title,
+        category: decrypted.category ?? "",
+        website: decrypted.website,
+        username: decrypted.username,
+        password: decrypted.password,
+        notes: decrypted.notes,
+        isFavorite: body.item.isFavorite,
+      });
+      await loadItems();
+    } catch {
+      setConflictError("Failed to reload latest version. Please try again.");
+    }
   }
 
   async function saveItem(event: FormEvent<HTMLFormElement>) {
@@ -142,16 +174,32 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
     if (Object.keys(nextErrors).length > 0) return;
     setIsSaving(true);
     setError(null);
+    setConflictError(null);
     const id = editingId ?? createItemId();
     try {
       const { isFavorite, ...sensitivePayload } = form;
       const encrypted = await encryptItem(id, sensitivePayload);
+      const existing = items.find((item) => item.id === id);
       const response = await fetch(editingId ? `/api/vault/${id}` : "/api/vault", {
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...encrypted, isFavorite }),
+        body: JSON.stringify({ id, ...encrypted, isFavorite, ...(editingId ? { version: existing?.version ?? 1 } : {}) }),
       });
-      if (!response.ok) throw new Error("Unable to save vault item");
+      if (!response.ok) {
+        if (response.status === 409) {
+          const body = (await response.json().catch(() => null)) as { error?: string } | null;
+          setConflictError(body?.error ?? "This login was modified in another session. Please reload to review the latest changes.");
+          return;
+        }
+        if (response.status === 429) {
+          const retry = response.headers.get("Retry-After");
+          throw new Error(`Rate limit exceeded. Please wait ${retry ? `${retry}s` : "a moment"} before saving.`);
+        }
+        if (response.status === 413) {
+          throw new Error("Payload is too large. Please shorten the notes or fields.");
+        }
+        throw new Error("Unable to save vault item");
+      }
       await recordActivity(editingId ? "item_updated" : "item_created");
       setIsFormOpen(false);
       setForm({ ...emptyForm, isFavorite: false });
@@ -166,12 +214,26 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
   async function updateItem(id: string, patch: { isFavorite?: boolean; isTrash?: boolean }) {
     setError(null);
     try {
+      const item = items.find((current) => current.id === id);
+      if (!item) throw new Error("Vault item is no longer available");
       const response = await fetch(`/api/vault/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
+        body: JSON.stringify({ ...patch, version: item.version }),
       });
-      if (!response.ok) throw new Error("Unable to update vault item");
+      if (!response.ok) {
+        if (response.status === 409) {
+          setError("This item was modified in another session. Refreshing vault...");
+          await loadItems();
+          return;
+        }
+        if (response.status === 429) {
+          const retry = response.headers.get("Retry-After");
+          setError(`Rate limit exceeded. Please wait ${retry ? `${retry}s` : "a moment"} and try again.`);
+          return;
+        }
+        throw new Error("Unable to update vault item");
+      }
       if (patch.isTrash === true) await recordActivity("item_trashed");
       else if (patch.isTrash === false) await recordActivity("item_restored");
       else await recordActivity("item_updated");
@@ -184,8 +246,22 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
   async function permanentlyDelete(id: string) {
     if (!window.confirm("Permanently delete this vault item? This cannot be undone.")) return;
     try {
-      const response = await fetch(`/api/vault/${id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Unable to delete vault item");
+      const item = items.find((current) => current.id === id);
+      if (!item) throw new Error("Vault item is no longer available");
+      const response = await fetch(`/api/vault/${id}?version=${item.version}`, { method: "DELETE" });
+      if (!response.ok) {
+        if (response.status === 409) {
+          setError("This item was modified in another session. Refreshing vault...");
+          await loadItems();
+          return;
+        }
+        if (response.status === 429) {
+          const retry = response.headers.get("Retry-After");
+          setError(`Rate limit exceeded. Please wait ${retry ? `${retry}s` : "a moment"} and try again.`);
+          return;
+        }
+        throw new Error("Unable to delete vault item");
+      }
       await recordActivity("item_deleted");
       await loadItems();
     } catch (caught) {
@@ -212,6 +288,23 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
           <div><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8066ce]">{editingId ? "Update secure item" : "New vault item"}</p><h2 className="mt-1 text-xl font-semibold tracking-[-0.025em] text-[#3c3348]">{editingId ? "Edit login" : "Add login"}</h2></div>
           <button type="button" onClick={() => setIsFormOpen(false)} className="text-sm font-medium text-[#837b8e] hover:text-[#6245b8]">Cancel</button>
         </div>
+        {conflictError && (
+          <div className="flex flex-col gap-2 rounded-xl border border-[#f2b8b5] bg-[#fff0ee] p-4 text-sm text-[#b3261e]" role="alert">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold">{conflictError}</span>
+              <button
+                type="button"
+                onClick={() => void reloadConflictedItem()}
+                className="rounded-lg bg-[#b3261e] px-3 py-1 text-xs font-medium text-white hover:bg-[#8c1d18]"
+              >
+                Reload Latest Version
+              </button>
+            </div>
+            <p className="text-xs text-[#8c1d18]">
+              Another tab or session updated this record. Reloading will refresh the form with the latest saved version.
+            </p>
+          </div>
+        )}
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="space-y-2"><label htmlFor="login-title" className="block text-sm font-medium text-[#51485c]">Title <span className="text-[#a9435b]">*</span></label><input id="login-title" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="e.g. Google" aria-invalid={Boolean(formErrors.title)} className={`h-11 w-full rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-[#c6b7ef] ${formErrors.title ? "border-[#d47c8c]" : "border-[#ded7e8]"}`} />{formErrors.title && <p className="text-xs text-[#b34d63]">{formErrors.title}</p>}</div>
           <div className="space-y-2"><label htmlFor="login-category" className="block text-sm font-medium text-[#51485c]">Category <span className="text-xs font-normal text-[#9b94a5]">Optional</span></label><div className="relative"><select id="login-category" value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} className="h-11 w-full appearance-none rounded-xl border border-[#ded7e8] bg-white px-3 pr-10 text-sm text-[#51485c] outline-none focus:ring-2 focus:ring-[#c6b7ef]"><option value="">Select category</option>{categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}</select><ChevronDown size={16} className="pointer-events-none absolute right-3 top-3 text-[#9b94a5]" /></div></div>

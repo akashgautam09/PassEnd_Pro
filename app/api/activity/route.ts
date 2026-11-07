@@ -5,10 +5,13 @@ import { getAuthenticatedUserId, badRequestResponse, parseJsonBody, serverErrorR
 import { ensureDatabaseIndexes, getDatabase } from "@/lib/db/mongodb";
 import type { ActivityEventDocument } from "@/lib/db/types";
 import { activityEventSchema } from "@/lib/validations/api";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export async function GET() {
   const userId = await getAuthenticatedUserId();
   if (!userId) return unauthorizedResponse();
+  const limited = await enforceRateLimit(`activity:get:${userId}`, 30);
+  if (limited) return limited;
   try {
     await ensureDatabaseIndexes();
     const events = await getDatabase().collection<ActivityEventDocument>("activity_events").find({ userId }).sort({ createdAt: -1 }).limit(100).project({ _id: 0, eventType: 1, createdAt: 1 }).toArray();
@@ -21,6 +24,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const userId = await getAuthenticatedUserId();
   if (!userId) return unauthorizedResponse();
+  const limited = await enforceRateLimit(`activity:write:${userId}`, 60);
+  if (limited) return limited;
   try {
     const payload = await parseJsonBody(request, activityEventSchema);
     await ensureDatabaseIndexes();

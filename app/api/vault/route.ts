@@ -5,10 +5,13 @@ import { ensureDatabaseIndexes, getDatabase } from "@/lib/db/mongodb";
 import type { VaultItemDocument } from "@/lib/db/types";
 import { createVaultItemSchema, vaultListFilterSchema } from "@/lib/validations/api";
 import { z } from "zod";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export async function GET(request: Request) {
   const userId = await getAuthenticatedUserId();
   if (!userId) return unauthorizedResponse();
+  const limited = await enforceRateLimit(`vault:get:${userId}`, 60);
+  if (limited) return limited;
 
   const filterResult = vaultListFilterSchema.safeParse(new URL(request.url).searchParams.get("trash") ?? "active");
   if (!filterResult.success) return badRequestResponse("Invalid trash filter");
@@ -20,7 +23,7 @@ export async function GET(request: Request) {
       .collection<VaultItemDocument>("vault_items")
       .find({ userId, ...filter })
       .sort({ updatedAt: -1 })
-      .project({ _id: 1, encryptedData: 1, iv: 1, cryptoVersion: 1, isFavorite: 1, isTrash: 1, trashedAt: 1, purgeAt: 1, createdAt: 1, updatedAt: 1 })
+      .project({ _id: 1, encryptedData: 1, iv: 1, cryptoVersion: 1, version: 1, isFavorite: 1, isTrash: 1, trashedAt: 1, purgeAt: 1, createdAt: 1, updatedAt: 1 })
       .toArray();
 
     return NextResponse.json({ items });
@@ -32,6 +35,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const userId = await getAuthenticatedUserId();
   if (!userId) return unauthorizedResponse();
+  const limited = await enforceRateLimit(`vault:write:${userId}`, 30);
+  if (limited) return limited;
 
   try {
     const payload = await parseJsonBody(request, createVaultItemSchema);
@@ -43,6 +48,7 @@ export async function POST(request: Request) {
       encryptedData: payload.encryptedData,
       iv: payload.iv,
       cryptoVersion: payload.cryptoVersion,
+      version: 1,
       isFavorite: payload.isFavorite,
       isTrash: false,
       trashedAt: null,

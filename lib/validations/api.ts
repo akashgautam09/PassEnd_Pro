@@ -36,6 +36,7 @@ export const updateVaultItemSchema = z
   .object(encryptedRecordFields)
   .partial()
   .extend({
+    version: z.number().int().positive(),
     isFavorite: z.boolean().optional(),
     isTrash: z.boolean().optional(),
   })

@@ -1,6 +1,6 @@
 import { clerkMiddleware } from "@clerk/nextjs/server";
 
-const publicPaths = ["/sign-in", "/sign-up"];
+const publicPaths = ["/sign-in", "/sign-up", "/api/security/csp-report"];
 if (process.env.NODE_ENV !== "production") publicPaths.push("/crypto-proof");
 
 export default clerkMiddleware(async (auth, request) => {
