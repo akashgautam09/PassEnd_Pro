@@ -4,6 +4,7 @@ import { useAuth } from "@clerk/nextjs";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { hexToBytes, wipeBytes } from "@/lib/crypto/encoding";
+import { broadcastVaultEvent, subscribeToVaultEvents } from "@/lib/sync/tab-channel";
 import {
   createAdditionalData,
   createArgon2idParameters,
@@ -53,6 +54,7 @@ type VaultContextValue = {
   confirmRecoveryKeySaved: () => void;
   recoverVault: (recoveryKey: string, nextPassword: string) => Promise<boolean>;
   regenerateRecoveryKey: (currentPassword: string) => Promise<boolean>;
+  notifyMutation: (action?: "created" | "updated" | "trashed" | "restored" | "deleted", itemId?: string) => void;
 };
 
 const VaultContext = createContext<VaultContextValue | null>(null);
@@ -143,6 +145,29 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   }, [isLoaded, userId]);
 
   useEffect(() => {
+    const unsubscribe = subscribeToVaultEvents((event) => {
+      if (event.type === "VAULT_LOCKED" || event.type === "SESSION_SIGNED_OUT") {
+        if (vaultKeyRef.current) wipeBytes(vaultKeyRef.current);
+        vaultKeyRef.current = null;
+        setError(null);
+        setStatus("locked");
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  const previousUserIdRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (previousUserIdRef.current && !userId) {
+      broadcastVaultEvent({ type: "SESSION_SIGNED_OUT" });
+      if (vaultKeyRef.current) wipeBytes(vaultKeyRef.current);
+      vaultKeyRef.current = null;
+      setStatus("locked");
+    }
+    previousUserIdRef.current = userId;
+  }, [userId]);
+
+  useEffect(() => {
     if (status !== "unlocked" || !userId) return;
     let timer: number | undefined;
     const resetTimer = () => {
@@ -152,6 +177,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         vaultKeyRef.current = null;
         setError(null);
         setStatus("locked");
+        broadcastVaultEvent({ type: "VAULT_LOCKED" });
         void recordActivity("vault_locked");
       }, autoLockMinutes * 60 * 1000);
     };
@@ -176,7 +202,12 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     vaultKeyRef.current = null;
     setError(null);
     setStatus("locked");
+    broadcastVaultEvent({ type: "VAULT_LOCKED" });
     void recordActivity("vault_locked");
+  }
+
+  function notifyMutation(action?: "created" | "updated" | "trashed" | "restored" | "deleted", itemId?: string) {
+    broadcastVaultEvent({ type: "VAULT_MUTATED", action, itemId });
   }
 
   async function encryptItem(itemId: string, payload: unknown) {
@@ -461,6 +492,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     confirmRecoveryKeySaved,
     recoverVault,
     regenerateRecoveryKey,
+    notifyMutation,
   };
 
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;

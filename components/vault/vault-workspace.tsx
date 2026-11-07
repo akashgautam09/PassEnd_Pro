@@ -1,9 +1,18 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { ArchiveRestore, ChevronDown, Copy, Edit3, Eye, EyeOff, Heart, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import { ArchiveRestore, ChevronDown, Copy, Edit3, Eye, EyeOff, Heart, Plus, RotateCcw, Search, ShieldAlert, Trash2 } from "lucide-react";
 
 import { useVault } from "@/context/vault-provider";
+import { subscribeToVaultEvents } from "@/lib/sync/tab-channel";
+import {
+  base32ToBytes,
+  formatTotpDisplay,
+  generateTotpCode,
+  getTotpTimeRemaining,
+  parseTotpUri,
+  type TotpConfig,
+} from "@/lib/crypto/totp";
 
 type VaultMode = "active" | "favorites" | "trash";
 
@@ -14,10 +23,12 @@ type LoginPayload = {
   username: string;
   password: string;
   notes: string;
+  totp?: TotpConfig;
 };
 
 type LoginFormState = LoginPayload & {
   isFavorite: boolean;
+  totpInput: string;
 };
 
 type EncryptedRecord = {
@@ -70,11 +81,83 @@ async function recordActivity(eventType: "item_created" | "item_updated" | "item
   }).catch(() => undefined);
 }
 
+function TotpBadge({ totp }: { totp: TotpConfig }) {
+  const [code, setCode] = useState<string>("------");
+  const [remaining, setRemaining] = useState<number>(30);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function updateCode() {
+      try {
+        const nextCode = await generateTotpCode(totp);
+        if (!cancelled) setCode(nextCode);
+      } catch {
+        if (!cancelled) setCode("ERROR");
+      }
+    }
+
+    function tick() {
+      const info = getTotpTimeRemaining(totp.period ?? 30);
+      setRemaining(info.remainingSeconds);
+      if (info.remainingSeconds === (totp.period ?? 30)) {
+        void updateCode();
+      }
+    }
+
+    void updateCode();
+    tick();
+
+    const interval = window.setInterval(tick, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [totp]);
+
+  async function handleCopy() {
+    if (code && code !== "------" && code !== "ERROR") {
+      await copyToClipboard(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-[#ded7e8] bg-[#fbf9fe] p-3">
+      <div className="flex items-center justify-between text-xs text-[#7b7388]">
+        <span className="font-semibold uppercase tracking-wider text-[10px] text-[#7354d6]">
+          One-Time Code (TOTP)
+        </span>
+        <span className={`font-mono text-xs font-semibold ${remaining <= 5 ? "text-[#c2410c]" : "text-[#7b7388]"}`}>
+          {remaining}s
+        </span>
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <span className="font-mono text-lg font-bold tracking-widest text-[#2f273d]">
+          {formatTotpDisplay(code)}
+        </span>
+        <button
+          type="button"
+          onClick={() => void handleCopy()}
+          aria-label="Copy one-time code"
+          title="Copy one-time code"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[#ded7e8] bg-white px-2.5 py-1 text-xs font-semibold text-[#6245b8] hover:bg-[#f6f3fc]"
+        >
+          <Copy size={13} />
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
-  const { encryptItem, decryptItem } = useVault();
+  const { encryptItem, decryptItem, notifyMutation } = useVault();
   const [items, setItems] = useState<LocalItem[]>([]);
   const [query, setQuery] = useState("");
-  const [form, setForm] = useState<LoginFormState>({ ...emptyForm, isFavorite: false });
+  const [form, setForm] = useState<LoginFormState>({ ...emptyForm, isFavorite: false, totpInput: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -82,7 +165,7 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflictError, setConflictError] = useState<string | null>(null);
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof LoginPayload, string>>>({});
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof LoginPayload | "totp", string>>>({});
   const [showFormPassword, setShowFormPassword] = useState(false);
 
   const loadItems = useCallback(async () => {
@@ -100,7 +183,15 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
             iv: record.iv,
             cryptoVersion: record.cryptoVersion,
           });
-          decrypted.push({ ...payload, id: record._id, isFavorite: record.isFavorite, version: record.version ?? 1, isTrash: record.isTrash, trashedAt: record.trashedAt, purgeAt: record.purgeAt });
+          decrypted.push({
+            ...payload,
+            id: record._id,
+            isFavorite: record.isFavorite,
+            version: record.version ?? 1,
+            isTrash: record.isTrash,
+            trashedAt: record.trashedAt,
+            purgeAt: record.purgeAt,
+          });
         } catch {
           setError("One or more vault items could not be decrypted.");
         }
@@ -118,9 +209,19 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
     return () => window.clearTimeout(timer);
   }, [loadItems]);
 
+  // Cross-tab coordination: refresh when another tab performs a mutation
+  useEffect(() => {
+    const unsubscribe = subscribeToVaultEvents((event) => {
+      if (event.type === "VAULT_MUTATED") {
+        void loadItems();
+      }
+    });
+    return unsubscribe;
+  }, [loadItems]);
+
   function openCreateForm() {
     setEditingId(null);
-    setForm({ ...emptyForm, isFavorite: false });
+    setForm({ ...emptyForm, isFavorite: false, totpInput: "" });
     setFormErrors({});
     setConflictError(null);
     setShowFormPassword(false);
@@ -129,7 +230,17 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
 
   function openEditForm(item: LocalItem) {
     setEditingId(item.id);
-    setForm({ title: item.title, category: item.category ?? "", website: item.website, username: item.username, password: item.password, notes: item.notes, isFavorite: item.isFavorite });
+    setForm({
+      title: item.title,
+      category: item.category ?? "",
+      website: item.website,
+      username: item.username,
+      password: item.password,
+      notes: item.notes,
+      totp: item.totp,
+      isFavorite: item.isFavorite,
+      totpInput: item.totp?.secret ?? "",
+    });
     setFormErrors({});
     setConflictError(null);
     setShowFormPassword(false);
@@ -155,7 +266,9 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
         username: decrypted.username,
         password: decrypted.password,
         notes: decrypted.notes,
+        totp: decrypted.totp,
         isFavorite: body.item.isFavorite,
+        totpInput: decrypted.totp?.secret ?? "",
       });
       await loadItems();
     } catch {
@@ -165,25 +278,63 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
 
   async function saveItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const nextErrors: Partial<Record<keyof LoginPayload, string>> = {};
+    const nextErrors: Partial<Record<keyof LoginPayload | "totp", string>> = {};
     if (!form.title.trim()) nextErrors.title = "Enter a title for this login.";
     if (!form.username.trim()) nextErrors.username = "Enter a username or email.";
     if (!form.password) nextErrors.password = "Enter the password for this login.";
     if (form.website && !/^https?:\/\//i.test(form.website.trim())) nextErrors.website = "Use a URL beginning with http:// or https://.";
+
+    let totpConfig: TotpConfig | undefined = undefined;
+    const cleanTotp = form.totpInput.trim();
+    if (cleanTotp) {
+      if (cleanTotp.toLowerCase().startsWith("otpauth://")) {
+        try {
+          totpConfig = parseTotpUri(cleanTotp);
+        } catch (e) {
+          nextErrors.totp = e instanceof Error ? e.message : "Invalid TOTP URI";
+        }
+      } else {
+        try {
+          const rawBytes = base32ToBytes(cleanTotp);
+          if (rawBytes.length < 4) {
+            nextErrors.totp = "Secret is too short (minimum 8 Base32 characters)";
+          } else {
+            totpConfig = {
+              secret: cleanTotp.toUpperCase().replace(/[\s-]/g, "").replace(/=+$/, ""),
+              algorithm: "SHA-1",
+              digits: 6,
+              period: 30,
+            };
+          }
+        } catch {
+          nextErrors.totp = "Invalid Base32 secret (allowed characters: A-Z, 2-7)";
+        }
+      }
+    }
+
     setFormErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
+
     setIsSaving(true);
     setError(null);
     setConflictError(null);
     const id = editingId ?? createItemId();
     try {
-      const { isFavorite, ...sensitivePayload } = form;
+      const sensitivePayload: LoginPayload = {
+        title: form.title,
+        category: form.category,
+        website: form.website,
+        username: form.username,
+        password: form.password,
+        notes: form.notes,
+        totp: totpConfig,
+      };
       const encrypted = await encryptItem(id, sensitivePayload);
       const existing = items.find((item) => item.id === id);
       const response = await fetch(editingId ? `/api/vault/${id}` : "/api/vault", {
         method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...encrypted, isFavorite, ...(editingId ? { version: existing?.version ?? 1 } : {}) }),
+        body: JSON.stringify({ id, ...encrypted, isFavorite: form.isFavorite, ...(editingId ? { version: existing?.version ?? 1 } : {}) }),
       });
       if (!response.ok) {
         if (response.status === 409) {
@@ -201,8 +352,9 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
         throw new Error("Unable to save vault item");
       }
       await recordActivity(editingId ? "item_updated" : "item_created");
+      notifyMutation(editingId ? "updated" : "created", id);
       setIsFormOpen(false);
-      setForm({ ...emptyForm, isFavorite: false });
+      setForm({ ...emptyForm, isFavorite: false, totpInput: "" });
       await loadItems();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to save vault item");
@@ -234,9 +386,16 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
         }
         throw new Error("Unable to update vault item");
       }
-      if (patch.isTrash === true) await recordActivity("item_trashed");
-      else if (patch.isTrash === false) await recordActivity("item_restored");
-      else await recordActivity("item_updated");
+      if (patch.isTrash === true) {
+        await recordActivity("item_trashed");
+        notifyMutation("trashed", id);
+      } else if (patch.isTrash === false) {
+        await recordActivity("item_restored");
+        notifyMutation("restored", id);
+      } else {
+        await recordActivity("item_updated");
+        notifyMutation("updated", id);
+      }
       await loadItems();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to update vault item");
@@ -263,6 +422,7 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
         throw new Error("Unable to delete vault item");
       }
       await recordActivity("item_deleted");
+      notifyMutation("deleted", id);
       await loadItems();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to delete vault item");
@@ -311,6 +471,26 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
           <div className="space-y-2 sm:col-span-2"><label htmlFor="login-website" className="block text-sm font-medium text-[#51485c]">Website URL <span className="text-xs font-normal text-[#9b94a5]">Optional</span></label><input id="login-website" type="url" value={form.website} onChange={(event) => setForm({ ...form, website: event.target.value })} placeholder="https://example.com" aria-invalid={Boolean(formErrors.website)} className={`h-11 w-full rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-[#c6b7ef] ${formErrors.website ? "border-[#d47c8c]" : "border-[#ded7e8]"}`} />{formErrors.website && <p className="text-xs text-[#b34d63]">{formErrors.website}</p>}</div>
           <div className="space-y-2"><label htmlFor="login-username" className="block text-sm font-medium text-[#51485c]">Username / Email <span className="text-[#a9435b]">*</span></label><input id="login-username" value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} placeholder="Enter username or email" aria-invalid={Boolean(formErrors.username)} className={`h-11 w-full rounded-xl border px-3 text-sm outline-none focus:ring-2 focus:ring-[#c6b7ef] ${formErrors.username ? "border-[#d47c8c]" : "border-[#ded7e8]"}`} />{formErrors.username && <p className="text-xs text-[#b34d63]">{formErrors.username}</p>}</div>
           <div className="space-y-2"><label htmlFor="login-password" className="block text-sm font-medium text-[#51485c]">Password <span className="text-[#a9435b]">*</span></label><div className="relative"><input id="login-password" type={showFormPassword ? "text" : "password"} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Enter password" aria-invalid={Boolean(formErrors.password)} className={`h-11 w-full rounded-xl border px-3 pr-11 text-sm outline-none focus:ring-2 focus:ring-[#c6b7ef] ${formErrors.password ? "border-[#d47c8c]" : "border-[#ded7e8]"}`} /><button type="button" aria-label={showFormPassword ? "Hide password" : "Show password"} title={showFormPassword ? "Hide password" : "Show password"} onClick={() => setShowFormPassword((visible) => !visible)} className="absolute right-3 top-3 text-[#837b8e] hover:text-[#6245b8]">{showFormPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>{formErrors.password && <p className="text-xs text-[#b34d63]">{formErrors.password}</p>}</div>
+          <div className="space-y-2 sm:col-span-2">
+            <label htmlFor="login-totp" className="block text-sm font-medium text-[#51485c]">
+              Authenticator Key / TOTP URI <span className="text-xs font-normal text-[#9b94a5]">Optional</span>
+            </label>
+            <input
+              id="login-totp"
+              value={form.totpInput}
+              onChange={(event) => setForm({ ...form, totpInput: event.target.value })}
+              placeholder="e.g. JBSWY3DPEHPK3PXP or paste otpauth://totp/..."
+              aria-invalid={Boolean(formErrors.totp)}
+              className={`h-11 w-full rounded-xl border px-3 font-mono text-sm outline-none focus:ring-2 focus:ring-[#c6b7ef] ${formErrors.totp ? "border-[#d47c8c]" : "border-[#ded7e8]"}`}
+            />
+            {formErrors.totp && <p className="text-xs text-[#b34d63]">{formErrors.totp}</p>}
+            <div className="mt-2 flex items-start gap-2 rounded-xl border border-[#ded7e8] bg-[#faf8fc] p-3 text-xs leading-5 text-[#625970]">
+              <ShieldAlert size={16} className="mt-0.5 shrink-0 text-[#7354d6]" />
+              <span>
+                <strong>Two-Factor Security Notice:</strong> Storing passwords and 2FA authenticator seeds in the same vault means both factors unlock together. For high-security accounts requiring independent factors, maintain TOTP seeds in a separate authenticator app.
+              </span>
+            </div>
+          </div>
         </div>
         <div className="space-y-2"><div className="flex items-center justify-between"><label htmlFor="login-notes" className="block text-sm font-medium text-[#51485c]">Private Notes <span className="text-xs font-normal text-[#9b94a5]">Optional</span></label></div><textarea id="login-notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Add additional private information..." rows={3} className="w-full resize-y rounded-xl border border-[#ded7e8] p-3 text-sm outline-none focus:ring-2 focus:ring-[#c6b7ef]" /></div>
         <button type="button" aria-pressed={form.isFavorite} onClick={() => setForm({ ...form, isFavorite: !form.isFavorite })} className={`inline-flex items-center gap-2 text-sm font-medium ${form.isFavorite ? "text-[#6245b8]" : "text-[#6f6878]"}`}><Heart size={18} fill={form.isFavorite ? "currentColor" : "none"} />{form.isFavorite ? "Added to Favorites" : "Add to Favorites"}</button>
@@ -323,6 +503,7 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
           return <article key={item.id} className="rounded-2xl border border-[#e8e4ef] bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold text-[#3c3348]">{item.title}</h2><p className="mt-1 text-xs text-[#9b94a5]">{item.website || "No website"}</p></div><button type="button" aria-label={item.isFavorite ? "Remove favorite" : "Add favorite"} title={item.isFavorite ? "Remove favorite" : "Add favorite"} onClick={() => updateItem(item.id, { isFavorite: !item.isFavorite })} className={item.isFavorite ? "text-[#7354d6]" : "text-[#b9b1c2]"}><Heart size={18} fill={item.isFavorite ? "currentColor" : "none"} /></button></div>
             <dl className="mt-5 space-y-3 text-sm"><div><dt className="text-[11px] uppercase tracking-[0.12em] text-[#aaa3b5]">Username</dt><dd className="mt-1 flex items-center justify-between gap-3 text-[#51485c]"><span className="truncate">{item.username}</span><button type="button" aria-label="Copy username" title="Copy username" onClick={() => void copyToClipboard(item.username)} className="text-[#837b8e] hover:text-[#7354d6]"><Copy size={15} /></button></dd></div><div><dt className="text-[11px] uppercase tracking-[0.12em] text-[#aaa3b5]">Password</dt><dd className="mt-1 flex items-center justify-between gap-3 font-mono text-[#51485c]"><span>{passwordVisible ? item.password : "••••••••••••"}</span><span className="flex items-center gap-2"><button type="button" aria-label={passwordVisible ? "Hide password" : "Show password"} title={passwordVisible ? "Hide password" : "Show password"} onClick={() => setVisiblePasswords((current) => { const next = new Set(current); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; })} className="text-[#837b8e] hover:text-[#7354d6]">{passwordVisible ? <EyeOff size={15} /> : <Eye size={15} />}</button><button type="button" aria-label="Copy password" title="Copy password" onClick={() => void copyToClipboard(item.password)} className="text-[#837b8e] hover:text-[#7354d6]"><Copy size={15} /></button></span></dd></div></dl>
+            {item.totp && <TotpBadge totp={item.totp} />}
             {item.notes && <p className="mt-4 line-clamp-2 text-sm leading-5 text-[#837b8e]">{item.notes}</p>}
             <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[#f0edf4] pt-4"><button type="button" onClick={() => openEditForm(item)} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#6245b8]"><Edit3 size={14} />Edit</button>{mode === "trash" ? <><button type="button" onClick={() => updateItem(item.id, { isTrash: false })} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#6245b8]"><RotateCcw size={14} />Restore</button><button type="button" onClick={() => void permanentlyDelete(item.id)} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#a9435b]"><Trash2 size={14} />Delete permanently</button></> : <button type="button" onClick={() => updateItem(item.id, { isTrash: true })} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#a9435b]"><ArchiveRestore size={14} />Move to trash</button>}</div>
           </article>;
