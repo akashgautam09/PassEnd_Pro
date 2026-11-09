@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const isProduction = process.env.NODE_ENV === "production";
-const isCspEnforced = process.env.CSP_ENFORCE === "true";
+const isCspEnforced = process.env.CSP_ENFORCE === "true" || (isProduction && process.env.CSP_REPORT_ONLY !== "true");
 const cspHeaderKey = isCspEnforced
   ? "Content-Security-Policy"
   : "Content-Security-Policy-Report-Only";

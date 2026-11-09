@@ -934,7 +934,7 @@ export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
                 {item.type === "login" ? (
                   <dl className="mt-5 space-y-3 text-sm">
                     <div>
-                      <dt className="text-[11px] uppercase tracking-[0.12em] text-[#aaa3b5]">Username</dt>
+                      <dt className="text-[11px] uppercase tracking-[0.12em] text-[#aaa3b5]">Username/Email</dt>
                       <dd className="mt-1 flex items-center justify-between gap-3 text-[#51485c]">
                         <span className="truncate">{item.username}</span>
                         <button

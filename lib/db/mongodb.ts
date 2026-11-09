@@ -24,7 +24,12 @@ export function getDatabase(): Db {
   }
 
   if (!globalMongo.__passendMongo) {
-    const client = new MongoClient(mongoUri);
+    const client = new MongoClient(mongoUri, {
+      maxPoolSize: 10,
+      minPoolSize: 0,
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 10000,
+    });
     const database = client.db(mongoDatabaseName);
     globalMongo.__passendMongo = {
       client,
