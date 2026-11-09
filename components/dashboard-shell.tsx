@@ -14,7 +14,6 @@ import {
   LayoutDashboard,
   LockKeyhole,
   Menu,
-  Moon,
   Search,
   Settings,
   ShieldCheck,
@@ -196,9 +195,6 @@ export function DashboardShell({
               <span className="text-xs">Search your vault</span>
               <span className="ml-auto rounded-md border border-[#eeeaf3] px-1.5 py-0.5 text-[10px] text-[#b3adbb]">⌘ K</span>
             </div>
-            <button type="button" aria-label="Toggle theme" className="rounded-xl p-2.5 text-[#837b8e] hover:bg-white">
-              <Moon size={18} strokeWidth={1.8} />
-            </button>
             <button type="button" aria-label="Help and support" className="rounded-xl p-2.5 text-[#837b8e] hover:bg-white">
               <CircleHelp size={18} strokeWidth={1.8} />
             </button>
@@ -209,7 +205,7 @@ export function DashboardShell({
         </header>
 
         <main className="mx-auto min-h-[calc(100vh-76px)] max-w-[1320px] px-5 py-9 sm:px-8 sm:py-12 lg:px-11">
-          <div className="mb-10 max-w-2xl">
+          <div className="mb-6 max-w-2xl">
             <p className="mb-3 text-xs font-semibold uppercase tracking-[0.17em] text-[#8066ce]">{eyebrow}</p>
             <h1 className="text-[clamp(2rem,4vw,3.15rem)] font-semibold leading-[1.08] tracking-[-0.045em] text-[#2e2639]">{title}</h1>
             <p className="mt-4 max-w-xl text-sm leading-6 text-[#837b8e] sm:text-[15px]">{description}</p>

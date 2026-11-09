@@ -49,5 +49,28 @@ export const batchCreateVaultItemSchema = z.object({
 });
 
 export const activityEventSchema = z.object({
-  eventType: z.enum(["vault_created", "vault_unlocked", "vault_locked", "item_created", "item_updated", "item_trashed", "item_restored", "item_deleted", "master_password_changed"]),
+  eventType: z.enum([
+    "vault_created",
+    "vault_unlocked",
+    "vault_locked",
+    "item_created",
+    "item_updated",
+    "item_trashed",
+    "item_restored",
+    "item_deleted",
+    "master_password_changed",
+    "recovery_key_regenerated",
+  ]),
 });
+
+export const deleteActivitySchema = z.union([
+  z.object({
+    mode: z.literal("count"),
+    count: z.coerce.number().pipe(z.union([z.literal(5), z.literal(10)])),
+  }),
+  z.object({
+    mode: z.literal("all"),
+  }),
+]);
+
+export type DeleteActivityInput = z.infer<typeof deleteActivitySchema>;
