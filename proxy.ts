@@ -4,9 +4,11 @@ const publicPaths = ["/sign-in", "/sign-up", "/api/security/csp-report"];
 if (process.env.NODE_ENV !== "production") publicPaths.push("/crypto-proof");
 
 export default clerkMiddleware(async (auth, request) => {
-  const isPublicPath = publicPaths.some(
-    (path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`),
-  );
+  const isPublicPath =
+    request.nextUrl.pathname === "/" ||
+    publicPaths.some(
+      (path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(`${path}/`),
+    );
 
   if (!isPublicPath) {
     await auth.protect();

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("unauthenticated dashboard access redirects to Clerk sign-in", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/vault");
   await expect(page).toHaveURL(/\/sign-in/);
 });
 

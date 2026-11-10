@@ -11,7 +11,6 @@ import {
   FolderLock,
   Heart,
   KeyRound,
-  LayoutDashboard,
   LockKeyhole,
   Menu,
   Search,
@@ -24,7 +23,6 @@ import { useState } from "react";
 import { useVault } from "@/context/vault-provider";
 
 const navigation = [
-  { label: "Overview", href: "/", icon: LayoutDashboard },
   { label: "My Vault", href: "/vault", icon: FolderLock },
   { label: "Favorites", href: "/favorites", icon: Heart },
 ];
@@ -113,7 +111,7 @@ export function DashboardShell({
         }`}
       >
         <div className="flex items-center justify-between px-2">
-          <Link href="/" className="flex items-center gap-3" onClick={() => setMobileOpen(false)}>
+          <Link href="/vault" className="flex items-center gap-3" onClick={() => setMobileOpen(false)}>
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#7354d6] text-white shadow-[0_6px_14px_rgba(115,84,214,0.22)]">
               <KeyRound size={19} strokeWidth={2.2} />
             </span>
