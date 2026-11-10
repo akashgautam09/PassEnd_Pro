@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import {
   Activity,
@@ -19,7 +19,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useVault } from "@/context/vault-provider";
 
 const navigation = [
@@ -101,7 +101,32 @@ export function DashboardShell({
   children,
 }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { lockVault } = useVault();
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const pathname = usePathname();
+  const router = useRouter();
+  const { lockVault, searchQuery, setSearchQuery } = useVault();
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  function handleSearchChange(val: string) {
+    setSearchQuery(val);
+    const searchablePaths = ["/vault", "/favorites", "/trash"];
+    if (val.trim() && !searchablePaths.includes(pathname)) {
+      router.push("/vault");
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#f7f5fb]">
@@ -188,11 +213,53 @@ export function DashboardShell({
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
-            <div className="hidden h-10 w-[210px] items-center gap-2 rounded-xl border border-[#e8e4ef] bg-white px-3 text-[#aaa3b5] sm:flex">
-              <Search size={16} />
-              <span className="text-xs">Search your vault</span>
-              <span className="ml-auto rounded-md border border-[#eeeaf3] px-1.5 py-0.5 text-[10px] text-[#b3adbb]">⌘ K</span>
+            {/* Desktop Search Input */}
+            <div className="relative hidden items-center sm:flex">
+              <Search size={15} className="pointer-events-none absolute left-3 text-[#aaa3b5]" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setSearchQuery("");
+                    searchInputRef.current?.blur();
+                  }
+                }}
+                placeholder="Search your vault..."
+                aria-label="Search your vault"
+                className="h-10 w-[210px] rounded-xl border border-[#e8e4ef] bg-white pl-9 pr-14 text-xs text-[#2e2639] placeholder-[#aaa3b5] transition-all focus:border-[#7354d6] focus:outline-none focus:ring-2 focus:ring-[#7354d6]/20 lg:w-[260px]"
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 rounded-md p-1 text-[#aaa3b5] hover:bg-[#f5f1fb] hover:text-[#5d5568]"
+                >
+                  <X size={13} />
+                </button>
+              ) : (
+                <span className="pointer-events-none absolute right-2.5 rounded-md border border-[#eeeaf3] bg-[#faf9fd] px-1.5 py-0.5 text-[10px] text-[#b3adbb]">
+                  ⌘ K
+                </span>
+              )}
             </div>
+
+            {/* Mobile Search Toggle Button */}
+            <button
+              type="button"
+              aria-label="Toggle search"
+              onClick={() => {
+                setMobileSearchOpen((prev) => !prev);
+                setTimeout(() => mobileSearchInputRef.current?.focus(), 50);
+              }}
+              className="rounded-xl p-2.5 text-[#837b8e] hover:bg-white sm:hidden"
+            >
+              <Search size={18} strokeWidth={1.8} />
+            </button>
+
             <button type="button" aria-label="Help and support" className="rounded-xl p-2.5 text-[#837b8e] hover:bg-white">
               <CircleHelp size={18} strokeWidth={1.8} />
             </button>
@@ -201,6 +268,34 @@ export function DashboardShell({
             </button>
           </div>
         </header>
+
+        {/* Mobile Search Expandable Bar */}
+        {mobileSearchOpen && (
+          <div className="border-b border-[#e8e4ef] bg-white px-4 py-3 sm:hidden">
+            <div className="relative flex items-center">
+              <Search size={15} className="pointer-events-none absolute left-3 text-[#aaa3b5]" />
+              <input
+                ref={mobileSearchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Search your vault..."
+                aria-label="Search your vault"
+                className="h-10 w-full rounded-xl border border-[#e8e4ef] bg-[#faf9fd] pl-9 pr-9 text-xs text-[#2e2639] outline-none focus:border-[#7354d6]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 p-1 text-[#aaa3b5]"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         <main className="mx-auto min-h-[calc(100vh-76px)] max-w-[1320px] px-5 py-9 sm:px-8 sm:py-12 lg:px-11">
           <div className="mb-6 max-w-2xl">

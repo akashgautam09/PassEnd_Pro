@@ -132,10 +132,10 @@ export function CryptoPlayground({ onShowToast }: CryptoPlaygroundProps) {
   }, [runCryptoSimulation]);
 
   function handleCopyPayload() {
-    const text = `{\n  "iv": ${ivBase64},\n  "encryptedData": ${ciphertextBase64},\n  "cryptoVersion": 1\n}`;
+    const text = `{\n  "iv": ${ivBase64},\n  "encryptedData": ${ciphertextBase64},\n  "protection": "Strong Master Password Lock"\n}`;
     void navigator.clipboard.writeText(text);
     setCopied(true);
-    onShowToast("Encrypted payload copied to clipboard");
+    onShowToast("Scrambled code copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
   }
 
@@ -149,13 +149,13 @@ export function CryptoPlayground({ onShowToast }: CryptoPlaygroundProps) {
         <div className="mx-auto mb-12 max-w-3xl text-center">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-200/60 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
             <Terminal className="h-3.5 w-3.5" />
-            <span>Interactive Web Crypto Simulation</span>
+            <span>Interactive Privacy Demo</span>
           </div>
           <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-            See Zero-Knowledge Encryption in Action
+            See How Your Passwords Are Protected
           </h2>
-          <p className="mt-3 text-sm text-slate-600 sm:text-base">
-            This interactive engine runs <strong className="text-slate-900">directly inside your browser</strong> using the native <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-xs text-violet-700">SubtleCrypto</code> API. Type a secret below to watch it undergo PBKDF2 key derivation and AES-256-GCM encryption before your eyes.
+          <p className="mt-3 text-sm text-slate-600 sm:text-base leading-relaxed">
+            Everything on this page happens safely inside your browser. Type below to see how your real information is turned into scrambled, unreadable code that only your Master Password can unlock.
           </p>
         </div>
 
@@ -168,7 +168,7 @@ export function CryptoPlayground({ onShowToast }: CryptoPlaygroundProps) {
                 htmlFor="demo-password-input"
                 className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-600"
               >
-                Simulated Master Password (never leaves browser memory)
+                Master Password (never sent to our servers)
               </label>
               <div className="relative">
                 <input
@@ -190,10 +190,10 @@ export function CryptoPlayground({ onShowToast }: CryptoPlaygroundProps) {
               </div>
             </div>
 
-            {/* Vault Memory Status */}
+            {/* Vault Status */}
             <div className="flex flex-col justify-end">
               <span className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                In-Memory Vault Status
+                Vault Status
               </span>
               <button
                 type="button"
@@ -207,12 +207,12 @@ export function CryptoPlayground({ onShowToast }: CryptoPlaygroundProps) {
                 {isVaultUnlocked ? (
                   <>
                     <Unlock className="h-3.5 w-3.5" />
-                    <span>Vault Unlocked (VEK in RAM)</span>
+                    <span>Vault Unlocked (Ready to View)</span>
                   </>
                 ) : (
                   <>
                     <Lock className="h-3.5 w-3.5" />
-                    <span>Vault Locked (Key Zeroized)</span>
+                    <span>Vault Locked (Completely Closed)</span>
                   </>
                 )}
               </button>
@@ -227,9 +227,9 @@ export function CryptoPlayground({ onShowToast }: CryptoPlaygroundProps) {
                 <div className="mb-3 flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700">
                     <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                    1. Plaintext Sensitive Record
+                    1. What You See on Your Screen
                   </span>
-                  <span className="font-mono text-[11px] text-slate-400">Decrypted in Browser RAM</span>
+                  <span className="text-[11px] font-medium text-slate-400">Visible only to you</span>
                 </div>
 
                 <div className="space-y-3">
@@ -238,7 +238,7 @@ export function CryptoPlayground({ onShowToast }: CryptoPlaygroundProps) {
                       htmlFor="demo-title-input"
                       className="mb-1 block text-[11px] font-medium text-slate-500"
                     >
-                      Item Title / Service
+                      Website or Service Name
                     </label>
                     <input
                       id="demo-title-input"
@@ -253,7 +253,7 @@ export function CryptoPlayground({ onShowToast }: CryptoPlaygroundProps) {
                       htmlFor="demo-user-input"
                       className="mb-1 block text-[11px] font-medium text-slate-500"
                     >
-                      Username / Identifier
+                      Username or Email
                     </label>
                     <input
                       id="demo-user-input"
@@ -282,8 +282,8 @@ export function CryptoPlayground({ onShowToast }: CryptoPlaygroundProps) {
               </div>
 
               <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-400">
-                <span>Algorithm: AES-GCM (256-bit)</span>
-                <span>IV Size: 96-bit (12 bytes)</span>
+                <span>Protected on your device</span>
+                <span>Bank-grade 256-bit lock</span>
               </div>
             </div>
 
@@ -296,37 +296,37 @@ export function CryptoPlayground({ onShowToast }: CryptoPlaygroundProps) {
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-400 opacity-75"></span>
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-violet-500"></span>
                     </span>
-                    2. Wire Payload (MongoDB Storage)
+                    2. What the Server and Database See
                   </span>
                   <span className="rounded bg-white/10 px-2 py-0.5 text-[11px] text-slate-300">
-                    Zero-Knowledge
+                    100% Unreadable
                   </span>
                 </div>
 
                 {!isVaultUnlocked ? (
                   <div className="my-8 text-center text-xs text-slate-400">
                     <Lock className="mx-auto mb-2 h-8 w-8 text-violet-400" />
-                    <p className="max-w-xs mx-auto">
-                      Vault is locked. In-memory VEK reference is cleared. Plaintext is inaccessible.
+                    <p className="max-w-xs mx-auto leading-relaxed">
+                      Your vault is locked. All passwords have been cleared from memory. Nobody can read your data without your Master Password.
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-2 text-[11px] leading-relaxed">
                     <div>
-                      <span className="font-semibold text-purple-400">&quot;iv&quot;:</span>{" "}
+                      <span className="font-semibold text-purple-400">&quot;securityCode&quot;:</span>{" "}
                       <span className="break-all text-slate-300">{ivBase64}</span>
                     </div>
                     <div>
-                      <span className="font-semibold text-purple-400">&quot;encryptedData&quot;:</span>
+                      <span className="font-semibold text-purple-400">&quot;scrambledData&quot;:</span>
                       <p className="max-h-24 overflow-y-auto break-all pr-1 text-emerald-400/90">
                         {ciphertextBase64}
                       </p>
                     </div>
                     <div>
-                      <span className="font-semibold text-purple-400">&quot;cryptoVersion&quot;:</span>{" "}
-                      <span className="text-amber-300">1</span>,{" "}
-                      <span className="font-semibold text-purple-400">&quot;kdf&quot;:</span>{" "}
-                      <span className="text-slate-300">&quot;PBKDF2-SHA256 (600,000 iters)&quot;</span>
+                      <span className="font-semibold text-purple-400">&quot;status&quot;:</span>{" "}
+                      <span className="text-emerald-300">&quot;locked&quot;</span>,{" "}
+                      <span className="font-semibold text-purple-400">&quot;protection&quot;:</span>{" "}
+                      <span className="text-slate-300">&quot;Strong Master Password Lock&quot;</span>
                     </div>
                   </div>
                 )}
@@ -335,7 +335,7 @@ export function CryptoPlayground({ onShowToast }: CryptoPlaygroundProps) {
               <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3 text-[11px] text-slate-400">
                 <span className="flex items-center gap-1">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>Database only receives high-entropy ciphertext</span>
+                  <span>Only scrambled code is stored on the server</span>
                 </span>
                 <button
                   type="button"
@@ -343,7 +343,7 @@ export function CryptoPlayground({ onShowToast }: CryptoPlaygroundProps) {
                   className="flex items-center gap-1 text-slate-300 hover:text-white transition-colors"
                 >
                   {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                  <span>{copied ? "Copied" : "Copy Payload"}</span>
+                  <span>{copied ? "Copied" : "Copy Scrambled Code"}</span>
                 </button>
               </div>
             </div>

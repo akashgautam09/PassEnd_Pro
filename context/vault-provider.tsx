@@ -72,6 +72,8 @@ type VaultContextValue = {
     mode: "merge" | "replace";
     onProgress?: (progress: RestoreProgress) => void;
   }) => Promise<RestoreSummary>;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
 };
 
 const VaultContext = createContext<VaultContextValue | null>(null);
@@ -118,6 +120,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     const stored = Number(window.localStorage.getItem("passend:auto-lock-minutes"));
     return [5, 15, 30, 60].includes(stored) ? stored : 15;
   });
+  const [searchQuery, setSearchQuery] = useState("");
   const vaultKeyRef = useRef<Uint8Array | null>(null);
 
   function setAutoLockMinutes(minutes: number) {
@@ -219,6 +222,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     vaultKeyRef.current = null;
     setError(null);
     setStatus("locked");
+    setSearchQuery("");
     broadcastVaultEvent({ type: "VAULT_LOCKED" });
     void recordActivity("vault_locked");
   }
@@ -621,6 +625,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     notifyMutation,
     exportBackup,
     restoreBackup,
+    searchQuery,
+    setSearchQuery,
   };
 
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;

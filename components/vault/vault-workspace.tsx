@@ -196,10 +196,9 @@ function TotpBadge({ totp }: { totp: TotpConfig }) {
 }
 
 export function VaultWorkspace({ mode = "active" }: { mode?: VaultMode }) {
-  const { encryptItem, decryptItem, notifyMutation } = useVault();
+  const { encryptItem, decryptItem, notifyMutation, searchQuery: query, setSearchQuery: setQuery } = useVault();
   const [items, setItems] = useState<LocalItem[]>([]);
   const [typeFilter, setTypeFilter] = useState<"all" | "login" | "note">("all");
-  const [query, setQuery] = useState("");
   const [form, setForm] = useState<ItemFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());

@@ -45,7 +45,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-[#faf9fd] text-[#1c1926] antialiased selection:bg-violet-100 selection:text-violet-900 font-sans">
+    <div className="relative flex min-h-screen flex-col bg-[#faf9fd] text-[#1c1926] antialiased selection:bg-violet-100 selection:text-violet-900 font-sans">
       {/* Ambient Decorative Background Glows */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute -left-[10%] -top-[25%] h-[650px] w-[650px] rounded-full bg-gradient-to-br from-violet-200/40 to-purple-100/10 blur-[130px]" />
@@ -53,7 +53,7 @@ export default function LandingPage() {
         <div className="grid-pattern absolute inset-0 opacity-60" />
       </div>
 
-      {/* 1. Navigation Bar (Exact second code snippet) */}
+      {/* 1. Navigation Bar */}
       <LandingNavbar onOpenModal={(modalId) => setActiveModal(modalId)} />
 
       {/* Main Content Area */}
@@ -69,7 +69,7 @@ export default function LandingPage() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-violet-500 opacity-75"></span>
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-violet-600"></span>
               </span>
-              <span>Next-Gen Zero-Knowledge Vault</span>
+              <span>Truly Private Password Vault</span>
             </div>
 
             {/* Headline */}
@@ -82,7 +82,7 @@ export default function LandingPage() {
 
             {/* Subheading */}
             <p className="mx-auto mb-10 max-w-2xl text-lg font-normal leading-relaxed text-slate-600 sm:text-xl">
-              A calm, private place for the credentials that matter. Built with client-side Web Crypto key wrapping, zero cloud plaintext, and absolute data sovereignty.
+              A calm, private place for the passwords that matter. Your information is locked right on your computer or phone before it ever touches the internet, so only you can see it.
             </p>
 
             {/* CTA Buttons */}
@@ -93,7 +93,7 @@ export default function LandingPage() {
                 className="inline-flex w-full items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-700 px-7 py-3.5 text-[15px] font-semibold text-white shadow-lg shadow-violet-600/25 transition-all hover:from-violet-700 hover:to-purple-800 active:scale-95 sm:w-auto"
               >
                 <ShieldCheck className="h-5 w-5" />
-                <span>Try Live Vault Playground</span>
+                <span>Try the Live Privacy Demo</span>
               </button>
 
               <button
@@ -102,7 +102,7 @@ export default function LandingPage() {
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200/90 bg-white px-6 py-3.5 text-[15px] font-semibold text-slate-700 shadow-xs transition-all hover:border-slate-300 hover:bg-slate-50 sm:w-auto"
               >
                 <FileCode2 className="h-4 w-4 text-violet-600" />
-                <span>Architecture Specs</span>
+                <span>How It Works</span>
               </button>
             </div>
 
@@ -110,15 +110,15 @@ export default function LandingPage() {
             <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs font-medium text-slate-500">
               <div className="flex items-center gap-2">
                 <Cpu className="h-4 w-4 text-violet-600" />
-                <span>Client-Side AES-256-GCM</span>
+                <span>Bank-Grade Encryption</span>
               </div>
               <div className="flex items-center gap-2">
                 <Fingerprint className="h-4 w-4 text-violet-600" />
-                <span>256-bit Emergency Kit</span>
+                <span>Emergency Recovery Key</span>
               </div>
               <div className="flex items-center gap-2">
                 <Database className="h-4 w-4 text-violet-600" />
-                <span>No Master Password on Server</span>
+                <span>We Never See Your Password</span>
               </div>
             </div>
           </div>
@@ -133,11 +133,11 @@ export default function LandingPage() {
                     <span className="h-3 w-3 rounded-full bg-slate-200"></span>
                     <span className="h-3 w-3 rounded-full bg-slate-200"></span>
                     <span className="h-3 w-3 rounded-full bg-slate-200"></span>
-                    <span className="ml-2 font-mono text-xs text-slate-400">workspace / passend-vault</span>
+                    <span className="ml-2 font-mono text-xs text-slate-400">PassEnd Pro / My Safe Vault</span>
                   </div>
                   <div className="flex items-center gap-2 rounded-lg border border-slate-200/60 bg-white px-2.5 py-1 font-mono text-xs text-slate-500">
                     <Shield className="h-3.5 w-3.5 text-violet-600" />
-                    <span>zero_knowledge_active</span>
+                    <span>100% private &amp; secure</span>
                   </div>
                 </div>
 
@@ -151,7 +151,7 @@ export default function LandingPage() {
                       Your vault is ready when you are
                     </h3>
                     <p className="mb-6 max-w-sm text-sm leading-relaxed text-slate-500">
-                      Set up your vault to start keeping your important logins, secure notes, and 2FA tokens in one private place.
+                      Set up your vault to keep your important logins, private notes, and two-factor codes safe in one place.
                     </p>
                     <div className="flex items-center gap-3">
                       <button
@@ -160,7 +160,7 @@ export default function LandingPage() {
                         className="flex items-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 text-xs font-semibold text-white shadow-xs transition-all hover:bg-violet-700"
                       >
                         <Sparkles className="h-3.5 w-3.5" />
-                        <span>Unlock Interactive Demo</span>
+                        <span>Try Interactive Demo</span>
                       </button>
                     </div>
                   </div>
@@ -181,115 +181,115 @@ export default function LandingPage() {
         <section id="features" className="scroll-mt-20 mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
           <div className="mx-auto mb-16 max-w-3xl text-center">
             <span className="rounded-full border border-violet-100 bg-violet-50 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-violet-600">
-              Engineered for Confidence
+              Built for Peace of Mind
             </span>
             <h2 className="mt-3 text-3xl font-extrabold tracking-tight text-[#171324] sm:text-5xl">
               Everything you need in a modern vault. Nothing you don&apos;t.
             </h2>
             <p className="mt-4 text-base text-slate-600 sm:text-lg">
-              Designed strictly around zero-knowledge foundations. We intentionally avoided unverified complexity, ensuring complete ownership over your credentials.
+              Designed so your data stays 100% yours. We keep things simple, transparent, and completely private so you never have to worry about your passwords.
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {/* Feature 1: Key Wrapping */}
+            {/* Feature 1: Instant Password Changes */}
             <div className="flex flex-col justify-between rounded-3xl border border-slate-100 bg-white p-7 shadow-xs transition-all hover:border-violet-200 hover:shadow-md">
               <div>
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-600">
                   <KeyRound className="h-6 w-6" />
                 </div>
-                <h3 className="mb-2 text-xl font-bold text-slate-900">VEK/KEK Key-Wrapping</h3>
+                <h3 className="mb-2 text-xl font-bold text-slate-900">Instant Password Updates</h3>
                 <p className="text-sm leading-relaxed text-slate-600">
-                  Instead of deriving an item key directly, we generate a random 256-bit Vault Encryption Key wrapped by your Master Password. Changing your password only re-wraps the VEK—no full vault re-encryption required.
+                  Change your Master Password whenever you want without the hassle of re-locking or re-encrypting every single item. Your vault stays safe and updates in an instant.
                 </p>
               </div>
               <div className="mt-6 flex items-center border-t border-slate-50 pt-4 text-xs font-semibold text-violet-700">
-                <span>OWASP-Compliant PBKDF2</span>
+                <span>Safe &amp; Fast Updates</span>
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
               </div>
             </div>
 
-            {/* Feature 2: 256-bit Recovery Kit */}
+            {/* Feature 2: Emergency Recovery Key */}
             <div className="flex flex-col justify-between rounded-3xl border border-slate-100 bg-white p-7 shadow-xs transition-all hover:border-violet-200 hover:shadow-md">
               <div>
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-600">
                   <LifeBuoy className="h-6 w-6" />
                 </div>
-                <h3 className="mb-2 text-xl font-bold text-slate-900">Emergency Recovery Kit</h3>
+                <h3 className="mb-2 text-xl font-bold text-slate-900">Emergency Recovery Key</h3>
                 <p className="text-sm leading-relaxed text-slate-600">
-                  Generate a true 256-bit random emergency recovery key formatted into 64 hexadecimal characters. It separately wraps your VEK, protecting you from total data loss without compromising zero-knowledge guarantees.
+                  Get a unique safety key you can download or print. If you ever forget your Master Password, this key ensures you never get locked out of your vault.
                 </p>
               </div>
               <div className="mt-6 flex items-center border-t border-slate-50 pt-4 text-xs font-semibold text-violet-700">
-                <span>Downloadable & Printable</span>
+                <span>Downloadable &amp; Printable</span>
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
               </div>
             </div>
 
-            {/* Feature 3: Local Health & HIBP */}
+            {/* Feature 3: Data Leak Warnings */}
             <div className="flex flex-col justify-between rounded-3xl border border-slate-100 bg-white p-7 shadow-xs transition-all hover:border-violet-200 hover:shadow-md">
               <div>
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-600">
                   <ShieldAlert className="h-6 w-6" />
                 </div>
-                <h3 className="mb-2 text-xl font-bold text-slate-900">k-Anonymity Breach Checks</h3>
+                <h3 className="mb-2 text-xl font-bold text-slate-900">Data Leak Warnings</h3>
                 <p className="text-sm leading-relaxed text-slate-600">
-                  Check for compromised credentials using Have I Been Pwned. We hash the password locally with SHA-1, send only the 5-character prefix, and inspect returned suffixes in browser RAM. Your secret is never sent.
+                  Automatically check if any of your saved passwords have appeared in known internet data leaks. We check safely without ever sharing or sending your real password.
                 </p>
               </div>
               <div className="mt-6 flex items-center border-t border-slate-50 pt-4 text-xs font-semibold text-violet-700">
-                <span>Private HIBP Range API</span>
+                <span>Private Leak Check</span>
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
               </div>
             </div>
 
-            {/* Feature 4: TOTP Authenticator */}
+            {/* Feature 4: Two-Factor Codes */}
             <div className="flex flex-col justify-between rounded-3xl border border-slate-100 bg-white p-7 shadow-xs transition-all hover:border-violet-200 hover:shadow-md">
               <div>
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-600">
                   <Timer className="h-6 w-6" />
                 </div>
-                <h3 className="mb-2 text-xl font-bold text-slate-900">Integrated 2FA / TOTP</h3>
+                <h3 className="mb-2 text-xl font-bold text-slate-900">Built-in Two-Factor Codes</h3>
                 <p className="text-sm leading-relaxed text-slate-600">
-                  Store 2FA seeds inside your encrypted vault payloads. The browser generates standard RFC 6238 time-based tokens with an animated countdown ring, keeping your login flow streamlined.
+                  Generate 6-digit verification codes for your accounts right inside your vault. There&apos;s no need to switch back and forth with a separate authenticator app.
                 </p>
               </div>
               <div className="mt-6 flex items-center border-t border-slate-50 pt-4 text-xs font-semibold text-violet-700">
-                <span>Web Crypto HMAC-SHA1</span>
+                <span>Built-in Authenticator</span>
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
               </div>
             </div>
 
-            {/* Feature 5: Multi-Tab Coordination */}
+            {/* Feature 5: Multi-Tab Sync */}
             <div className="flex flex-col justify-between rounded-3xl border border-slate-100 bg-white p-7 shadow-xs transition-all hover:border-violet-200 hover:shadow-md">
               <div>
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-600">
                   <Layers className="h-6 w-6" />
                 </div>
-                <h3 className="mb-2 text-xl font-bold text-slate-900">Cross-Tab State Sync</h3>
+                <h3 className="mb-2 text-xl font-bold text-slate-900">Automatic Multi-Tab Sync</h3>
                 <p className="text-sm leading-relaxed text-slate-600">
-                  Using the browser&apos;s BroadcastChannel, locking your vault or updating an item in one tab instantly propagates the signal to all other tabs—without ever sending keys over the wire.
+                  When you lock your vault or update a password in one browser tab, all your other open tabs update and lock instantly for your peace of mind.
                 </p>
               </div>
               <div className="mt-6 flex items-center border-t border-slate-50 pt-4 text-xs font-semibold text-violet-700">
-                <span>Zero-Leak Event Bus</span>
+                <span>Instant Browser Sync</span>
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
               </div>
             </div>
 
-            {/* Feature 6: Encrypted Portable Backups */}
+            {/* Feature 6: Simple Encrypted Backups */}
             <div className="flex flex-col justify-between rounded-3xl border border-slate-100 bg-white p-7 shadow-xs transition-all hover:border-violet-200 hover:shadow-md">
               <div>
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-100 bg-violet-50 text-violet-600">
                   <Download className="h-6 w-6" />
                 </div>
-                <h3 className="mb-2 text-xl font-bold text-slate-900">Encrypted .passend Backups</h3>
+                <h3 className="mb-2 text-xl font-bold text-slate-900">Simple Encrypted Backups</h3>
                 <p className="text-sm leading-relaxed text-slate-600">
-                  Export and restore durable encrypted JSON archives. During restoration, records are safely decrypted locally and re-encrypted with the target vault&apos;s VEK before sync, preventing cross-user collisions.
+                  Download a safe, backup copy of your passwords anytime. You can easily restore all your logins whenever you get a new computer or switch devices.
                 </p>
               </div>
               <div className="mt-6 flex items-center border-t border-slate-50 pt-4 text-xs font-semibold text-violet-700">
-                <span>Durable Data Portability</span>
+                <span>Export &amp; Restore Anytime</span>
                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
               </div>
             </div>
@@ -303,13 +303,13 @@ export default function LandingPage() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="mx-auto mb-16 max-w-3xl text-center">
               <span className="rounded-full border border-purple-800/40 bg-purple-950/80 px-3 py-1 font-mono text-xs uppercase tracking-widest text-purple-400">
-                Zero-Knowledge Specification
+                Clear Privacy Promise
               </span>
               <h2 className="mt-4 text-3xl font-extrabold text-white sm:text-4xl">
-                How PassEnd Pro Guarantees Privacy
+                How We Keep Your Information Secret
               </h2>
-              <p className="mt-3 text-sm text-slate-400 sm:text-base">
-                We separate your user identity (Clerk) from your encryption key (Master Password &amp; VEK). Here is exactly what is visible to the cloud versus what stays locked on your device.
+              <p className="mt-3 text-sm text-slate-400 sm:text-base leading-relaxed">
+                Your account sign-in and your secret passwords are kept strictly separate. Here is a simple look at what our server can see versus what only you can see.
               </p>
             </div>
 
@@ -322,29 +322,27 @@ export default function LandingPage() {
                     <Cloud className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">Visible to Server &amp; Database</h3>
-                    <p className="text-xs text-slate-400">Operational metadata required to run the service</p>
+                    <h3 className="text-lg font-bold text-white">What our servers store to keep your account working</h3>
+                    <p className="text-xs text-slate-400">Basic operational information needed to run the service</p>
                   </div>
                 </div>
 
                 <ul className="space-y-3.5 text-xs text-slate-300 sm:text-sm">
                   <li className="flex items-start gap-2.5">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                    <span>Your Clerk account ID and authenticated session token</span>
+                    <span>Your account email and login session</span>
                   </li>
                   <li className="flex items-start gap-2.5">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                    <span>Cryptographic parameters: KDF salt &amp; iteration count</span>
+                    <span>Settings needed to configure your lock</span>
                   </li>
                   <li className="flex items-start gap-2.5">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                    <span>Wrapped VEK ciphertext &amp; 12-byte initialization vectors</span>
+                    <span>Scrambled, unreadable data that can only be unlocked with your Master Password</span>
                   </li>
                   <li className="flex items-start gap-2.5">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                    <span>
-                      Operational item flags: <code className="rounded bg-slate-700/60 px-1 py-0.5 font-mono text-[11px] text-amber-300">isFavorite</code>, <code className="rounded bg-slate-700/60 px-1 py-0.5 font-mono text-[11px] text-amber-300">isTrash</code>, <code className="rounded bg-slate-700/60 px-1 py-0.5 font-mono text-[11px] text-amber-300">updatedAt</code>
-                    </span>
+                    <span>Helpful tags: whether an item is favorited or in the trash</span>
                   </li>
                 </ul>
               </div>
@@ -352,7 +350,7 @@ export default function LandingPage() {
               {/* Client-Side Only Boundary */}
               <div className="relative rounded-3xl border border-violet-500/30 bg-gradient-to-br from-[#1a1233] to-[#25184a] p-6 sm:p-8">
                 <div className="absolute -top-3 right-6 rounded-full bg-violet-600 px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider text-white shadow-xs">
-                  100% Client-Side
+                  100% Private to You
                 </div>
 
                 <div className="mb-6 flex items-center gap-3">
@@ -360,8 +358,8 @@ export default function LandingPage() {
                     <ShieldCheck className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white">Never Leaves Browser RAM</h3>
-                    <p className="text-xs text-violet-200/70">Cryptographically isolated and zeroized</p>
+                    <h3 className="text-lg font-bold text-white">What only YOU can see</h3>
+                    <p className="text-xs text-violet-200/70">Kept in your browser while unlocked, never saved to our servers</p>
                   </div>
                 </div>
 
@@ -369,25 +367,25 @@ export default function LandingPage() {
                   <li className="flex items-start gap-2.5">
                     <Lock className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
                     <span>
-                      <strong className="text-white">Master Password:</strong> Never sent to Next.js or MongoDB
+                      <strong className="text-white">Master Password:</strong> Never sent to our servers or stored in our database
                     </span>
                   </li>
                   <li className="flex items-start gap-2.5">
                     <Lock className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
                     <span>
-                      <strong className="text-white">Decrypted Credentials:</strong> Plaintext usernames, passwords, notes
+                      <strong className="text-white">Real Passwords &amp; Usernames:</strong> Only visible to you on your screen
                     </span>
                   </li>
                   <li className="flex items-start gap-2.5">
                     <Lock className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
                     <span>
-                      <strong className="text-white">Recovery Key:</strong> High-entropy 32-byte secret kept offline
+                      <strong className="text-white">Emergency Recovery Key:</strong> Kept offline in your hands only
                     </span>
                   </li>
                   <li className="flex items-start gap-2.5">
                     <Lock className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
                     <span>
-                      <strong className="text-white">TOTP 2FA Seeds:</strong> Decoded and truncated inside browser only
+                      <strong className="text-white">Two-Factor Codes:</strong> Calculated right on your device
                     </span>
                   </li>
                 </ul>
@@ -405,24 +403,24 @@ export default function LandingPage() {
               <Sparkles className="h-7 w-7" />
             </div>
             <h2 className="mb-4 text-3xl font-extrabold tracking-tight text-[#171324] sm:text-5xl">
-              Take control of your credentials today.
+              Take control of your passwords today.
             </h2>
             <p className="mx-auto mb-8 max-w-xl text-base text-slate-600 sm:text-lg">
-              No subscriptions, no corporate lock-in, and no unverified crypto claims. Just calm, private security.
+              No hidden fees, no subscriptions, and no complicated setups. Just calm, private security you can trust.
             </p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link
                 href="/vault"
                 className="w-full sm:w-auto rounded-2xl bg-violet-600 px-8 py-3.5 text-sm font-semibold text-white shadow-md shadow-violet-500/20 transition-all hover:bg-violet-700"
               >
-                Open Interactive Vault
+                Open My Vault
               </Link>
               <button
                 type="button"
                 onClick={() => setActiveModal("privacy")}
                 className="w-full sm:w-auto rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50"
               >
-                Read Zero-Knowledge Policy
+                Read Privacy Policy
               </button>
             </div>
           </div>
@@ -456,7 +454,7 @@ export default function LandingPage() {
               onClick={() => setActiveModal("privacy")}
               className="hover:text-violet-700 transition-colors"
             >
-              Zero-Knowledge Privacy
+              Privacy Policy
             </button>
             <button
               type="button"
@@ -466,7 +464,7 @@ export default function LandingPage() {
               Terms of Service
             </button>
             <a href="#security" className="hover:text-violet-700 transition-colors">
-              Security Architecture
+              How It Works
             </a>
           </div>
         </div>

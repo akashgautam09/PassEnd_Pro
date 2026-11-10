@@ -46,7 +46,7 @@ export function LegalModals({ activeModal, onClose }: LegalModalsProps) {
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-900">About PassEnd Pro</h3>
-                <p className="text-xs text-slate-500">Independent Zero-Knowledge Password Vault</p>
+                <p className="text-xs text-slate-500">A Truly Private Password Manager</p>
               </div>
             </div>
             <button
@@ -61,21 +61,21 @@ export function LegalModals({ activeModal, onClose }: LegalModalsProps) {
 
           <div className="space-y-4 text-sm leading-relaxed text-slate-600">
             <p>
-              <strong className="text-slate-900">PassEnd Pro</strong> was designed with a fundamental premise: you should never have to take a software vendor&apos;s word when it comes to your most critical passwords.
+              <strong className="text-slate-900">PassEnd Pro</strong> was created with one simple mission: your passwords should belong only to you, not software companies or servers.
             </p>
-            <h4 className="pt-2 text-sm font-bold text-slate-900">Our Engineering Philosophy:</h4>
+            <h4 className="pt-2 text-sm font-bold text-slate-900">How We Keep Things Simple &amp; Safe:</h4>
             <ul className="list-disc pl-5 space-y-2 text-xs text-slate-600">
               <li>
-                <strong className="text-slate-800">No Unverified Cryptography:</strong> We utilize native, audited Web Crypto APIs (SubtleCrypto) already trusted by billions of browsers daily.
+                <strong className="text-slate-800">Trusted Browser Security:</strong> We use the built-in, bank-level security already trusted by modern web browsers worldwide.
               </li>
               <li>
-                <strong className="text-slate-800">Zero Server-Side Decryption:</strong> Your Master Password is mathematically decoupled from your server sessions. The server holds ciphertext envelopes and zero cryptographic access.
+                <strong className="text-slate-800">We Cannot Read Your Data:</strong> Your Master Password never leaves your device. Our servers only store scrambled code that can never be unlocked without your password.
               </li>
               <li>
-                <strong className="text-slate-800">No Data Lock-In:</strong> Full portability with encrypted <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px] text-violet-700">.passend</code> archives and client-side importers for Bitwarden and 1Password.
+                <strong className="text-slate-800">You Are in Full Control:</strong> Download a safe backup of your vault anytime and restore your passwords whenever you get a new device.
               </li>
               <li>
-                <strong className="text-slate-800">Separation of Identity & Vault:</strong> User accounts are handled by Clerk, while cryptographic vault unsealing is managed purely in temporary browser memory.
+                <strong className="text-slate-800">Separation for Safety:</strong> Your account sign-in and your secret passwords are kept strictly separate so your vault remains completely private.
               </li>
             </ul>
           </div>
@@ -92,7 +92,7 @@ export function LegalModals({ activeModal, onClose }: LegalModalsProps) {
         </div>
       )}
 
-      {/* Modal 2: Zero-Knowledge Privacy Policy */}
+      {/* Modal 2: Privacy Policy */}
       {activeModal === "privacy" && (
         <div className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl border border-slate-100 bg-white p-6 sm:p-8 shadow-2xl">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
@@ -101,8 +101,8 @@ export function LegalModals({ activeModal, onClose }: LegalModalsProps) {
                 <Shield className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Zero-Knowledge Privacy Policy</h3>
-                <p className="text-xs text-slate-500">Effective Date: November 2026</p>
+                <h3 className="text-lg font-bold text-slate-900">Privacy Policy</h3>
+                <p className="text-xs text-slate-500">Our 100% Privacy Promise</p>
               </div>
             </div>
             <button
@@ -117,28 +117,27 @@ export function LegalModals({ activeModal, onClose }: LegalModalsProps) {
 
           <div className="space-y-4 text-sm leading-relaxed text-slate-600">
             <p>
-              At <strong className="text-slate-900">PassEnd Pro</strong>, privacy is enforced cryptographically, not through legal jargon. Because your vault is encrypted in your browser prior to network transit, we cannot sell, monetize, inspect, or surrender your passwords under any subpoena.
+              At <strong className="text-slate-900">PassEnd Pro</strong>, privacy is built right into the code. Because your vault is locked directly on your computer or phone before anything is saved online, we cannot see, inspect, sell, or surrender your passwords to anyone.
             </p>
 
-            <h4 className="pt-2 text-sm font-bold text-slate-900">1. What Information We Never See</h4>
+            <h4 className="pt-2 text-sm font-bold text-slate-900">1. What We Never See</h4>
             <p className="text-xs leading-relaxed">
-              We never have access to your Master Password, your 256-bit Emergency Recovery Key, your decrypted login items, secure notes, TOTP seeds, or website URLs.
+              We never have access to your Master Password, your Emergency Recovery Key, your actual usernames, passwords, website addresses, or secret notes.
             </p>
 
-            <h4 className="pt-2 text-sm font-bold text-slate-900">2. What Information We Store</h4>
+            <h4 className="pt-2 text-sm font-bold text-slate-900">2. What We Store to Keep Your Account Running</h4>
             <p className="text-xs">
-              To provide synchronization and operational integrity, MongoDB stores:
+              To keep your account working and in sync across your devices, we only store:
             </p>
             <ul className="list-disc pl-5 space-y-1.5 text-xs text-slate-600">
-              <li>Your Clerk Account ID and email for authentication.</li>
-              <li>KDF parameters (Salt, PBKDF2 iteration count).</li>
-              <li>Encrypted ciphertext blobs, 12-byte initialization vectors, and authentication tags.</li>
-              <li>Operational flags: whether an item is soft-deleted (Trash) or favorited.</li>
+              <li>Your account email and login session.</li>
+              <li>Scrambled, unreadable data that can only be unlocked with your Master Password.</li>
+              <li>Basic organizational settings (such as whether an item is favorited or in the trash).</li>
             </ul>
 
-            <h4 className="pt-2 text-sm font-bold text-slate-900">3. Third-Party Services</h4>
+            <h4 className="pt-2 text-sm font-bold text-slate-900">3. Safe Data Leak Checks</h4>
             <p className="text-xs leading-relaxed">
-              When performing compromised password audits, PassEnd Pro uses Have I Been Pwned&apos;s k-Anonymity API. Only the first 5 characters of your password&apos;s SHA-1 hash are sent. The full hash and password never leave your device.
+              When checking if your passwords were part of any internet breaches, we check safely using anonymous partial codes. Your actual passwords are never sent or shared across the internet.
             </p>
           </div>
 
@@ -164,7 +163,7 @@ export function LegalModals({ activeModal, onClose }: LegalModalsProps) {
               </div>
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Terms of Service</h3>
-                <p className="text-xs text-slate-500">PassEnd Pro End-User Agreement</p>
+                <p className="text-xs text-slate-500">Simple, Clear Rules for Using PassEnd Pro</p>
               </div>
             </div>
             <button
@@ -178,19 +177,19 @@ export function LegalModals({ activeModal, onClose }: LegalModalsProps) {
           </div>
 
           <div className="space-y-4 text-sm leading-relaxed text-slate-600">
-            <h4 className="pt-1 text-sm font-bold text-slate-900">1. User Responsibility & Key Custody</h4>
+            <h4 className="pt-1 text-sm font-bold text-slate-900">1. Keep Your Master Password &amp; Recovery Key Safe</h4>
             <p className="text-xs leading-relaxed">
-              PassEnd Pro operates strictly on a zero-knowledge architecture. If you lose both your Master Password and your Emergency Recovery Kit, <strong className="text-slate-900">your vault cannot be decrypted by PassEnd Pro staff, automated systems, or support agents</strong>. You agree that backup custody of your keys is your sole responsibility.
+              Because PassEnd Pro is truly private, <strong className="text-slate-900">nobody on our team can reset your Master Password if you lose it</strong>. Your Emergency Recovery Key is the only way to recover your vault, so please download or print it and store it in a safe place.
             </p>
 
-            <h4 className="pt-2 text-sm font-bold text-slate-900">2. Acceptable Use</h4>
+            <h4 className="pt-2 text-sm font-bold text-slate-900">2. Respectful Use</h4>
             <p className="text-xs leading-relaxed">
-              You agree not to use PassEnd Pro to store materials in violation of relevant export regulations or laws, or to abuse the serverless API endpoints through automated scraping or deliberate denial-of-service attempts.
+              You agree to use PassEnd Pro respectfully, for lawful purposes, and not attempt to disrupt or abuse the service for other users.
             </p>
 
-            <h4 className="pt-2 text-sm font-bold text-slate-900">3. Disclaimers</h4>
+            <h4 className="pt-2 text-sm font-bold text-slate-900">3. Device Security</h4>
             <p className="text-xs leading-relaxed">
-              PassEnd Pro provides encrypted credential storage as-is. While we employ NIST and OWASP-recommended cryptographic algorithms (AES-256-GCM, PBKDF2-HMAC-SHA256), no software guarantees absolute protection against physical endpoint compromise, active keyloggers, or hardware-level tampering on your personal device.
+              PassEnd Pro uses top-tier encryption to guard your passwords, but always remember to keep your own phone and computer free from viruses and unauthorized physical access.
             </p>
           </div>
 
@@ -200,7 +199,7 @@ export function LegalModals({ activeModal, onClose }: LegalModalsProps) {
               onClick={onClose}
               className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
             >
-              Agree & Close
+              Agree &amp; Close
             </button>
           </div>
         </div>
