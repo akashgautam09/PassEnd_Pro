@@ -85,7 +85,7 @@ export default function LandingPage() {
               A calm, private place for the passwords that matter. Your information is locked right on your computer or phone before it ever touches the internet, so only you can see it.
             </p>
 
-            {/* CTA Buttons */}
+            {/* CTA Buttons*/}
             <div className="mb-14 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <button
                 type="button"
