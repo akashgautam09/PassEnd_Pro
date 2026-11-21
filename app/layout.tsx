@@ -16,6 +16,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "PassEnd Pro",
   description: "A private home for your digital keys.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
